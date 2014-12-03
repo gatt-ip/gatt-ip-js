@@ -7,6 +7,9 @@
   ],
   "description": "Gattip JS file",
   "main": "gatt-ip.js",
+  "dependencies": {
+    "<name>": "<version>"
+  },
   "keywords": [
     "gattip",
     "gatt-ip",
