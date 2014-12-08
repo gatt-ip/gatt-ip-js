@@ -13,7 +13,9 @@
     "gattip-app",
     "gatt-ip-app",
     "gattip-js",
-    "gatt-ip-js"
+    "gatt-ip-js",
+    "bluetooth",
+    "gateway"
   ],
   "license": "MIT",
   "ignore": []
