@@ -442,6 +442,9 @@ function GATTIP() {
             params[kServiceUUID] = _service.uuid;
             params[kCharacteristicUUID] = this.uuid;
             params[kValue] = data;
+	    if (this.properties[2].enabled == 1) {
+		params[kWriteType] = GATTIP.kWriteWithoutResponse;
+	    }
             
             _gattip.write(kWriteCharacteristicValue, params);
         };
