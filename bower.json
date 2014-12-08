@@ -1,6 +1,6 @@
 {
   "name": "gatt-ip-js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "homepage": "https://github.com/gatt-ip/gatt-ip-js",
   "authors": [
     "vensi.com"
@@ -16,11 +16,5 @@
     "gatt-ip-js"
   ],
   "license": "MIT",
-  "ignore": [
-    "**/.*",
-    "node_modules",
-    "bower_components",
-    "test",
-    "tests"
-  ]
+  "ignore": []
 }
