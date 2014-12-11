@@ -21,7 +21,7 @@ function GATTIP() {
 	    
 	    _socket.onmessage = function(mesg){
             var response = JSON.parse(mesg.data);
-            var peripheral;
+            var peripheral, service, characteristic;
             
             switch(response.result) {
                 case kConfigure:
@@ -35,13 +35,15 @@ function GATTIP() {
                                                     response.params[kPeripheralName],
                                                     response.params[kPeripheralUUID],
                                                     response.params[kAdvertisementDataKey],
-                                                    response.params[kRSSIkey]);
+                                                    response.params[kRSSIkey],
+                                                    response.params[kPeripheralBtAddress]);
                         this.peripherals[response.params[kPeripheralUUID]] = peripheral;
                     } else {
                         peripheral.name = response.params[kPeripheralName];
                         peripheral.uuid = response.params[kPeripheralUUID];
                         peripheral.advertisement = response.params[kAdvertisementDataKey];
                         peripheral.rssi = response.params[kRSSIkey];
+                        peripheral.addr = response.params[kPeripheralBtAddress]; 
                     }
                     
                     this.onscan(peripheral,response.error);
@@ -198,6 +200,9 @@ function GATTIP() {
                         this.onupdateRSSI(peripheral, response.error);
                     }
                     break;
+               case kMessage:
+                    this.onMessage(response.params, response.error);
+                    break;                    
                 default:
                     console.log("invalid result");
             }
@@ -220,7 +225,8 @@ function GATTIP() {
     
     this.scan = function(scanDuplicates, services, callback) {
         if(callback) this.onscan = callback;
-        
+
+        this.peripherals = {};
         //TODO: validate params, check for array
         var params = {};
         params[kScanOptionAllowDuplicatesKey]=scanDuplicates;
@@ -274,12 +280,13 @@ function GATTIP() {
         _socket.send(mesg);
     };
     
-    function Peripheral(gattip, name, uuid, addata, rssi) {
+    function Peripheral(gattip, name, uuid, addata, rssi, addr) {
         var _gattip = gattip;
         this.name = name;
         this.uuid = uuid;
         this.advertisementData = addata;
         this.rssi = rssi;
+        this.addr = addr;        
         this.isConnected = false;
         this.services = {};
         
@@ -320,7 +327,7 @@ function GATTIP() {
         
         this.ondiscoverServices = function(params, error) {
             for(var index in params[kServices]) {
-                serviceUUID = params[kServices][index][kServiceUUID];
+                var serviceUUID = params[kServices][index][kServiceUUID];
                 var service = this.services[serviceUUID];
                 if(!service) {
                     service = new Service(_gattip, this, serviceUUID);
@@ -368,7 +375,7 @@ function GATTIP() {
         
         this.ondiscoverCharacteristics = function(params, error){
             for(var index in params[kCharacteristics]) {
-                characteristicUUID = params[kCharacteristics][index][kCharacteristicUUID];
+                var characteristicUUID = params[kCharacteristics][index][kCharacteristicUUID];
                 var characteristic = this.characteristics[characteristicUUID];
                 if(!characteristic) {
                     characteristic = new Characteristic(_gattip, _peripheral, this, characteristicUUID);
@@ -409,7 +416,7 @@ function GATTIP() {
         
         this.ondiscoverDescriptors = function(params, error){
             for(var index in params[kDescriptors]) {
-                descriptorUUID = params[kDescriptors][index][kDescriptorUUID];
+                var descriptorUUID = params[kDescriptors][index][kDescriptorUUID];
                 var descriptor = this.descriptors[descriptorUUID];
                 if(!descriptor) {
                     descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
@@ -424,7 +431,7 @@ function GATTIP() {
             var params = {};
             params[kPeripheralUUID] = _peripheral.uuid;
             params[kServiceUUID] = _service.uuid;
-            params[kCharacteristicUUID] = characteristic.uuid;
+            params[kCharacteristicUUID] = this.uuid;
             
             _gattip.write(kGetCharacteristicValue, params);
         };
@@ -530,6 +537,7 @@ function GATTIP() {
     var kGetRSSI                         = "au";
     var kInvalidatedServices             = "av";
     var kPeripheralNameUpdate            = "aw";
+    var kMessage                         = "zz";
     
     //-------------------------------------- Keys ----------------------------------------
     var kCentralUUID                     = "ba";
@@ -572,6 +580,7 @@ function GATTIP() {
     var kCBAdvertisementDataSolicitedServiceUUIDsKey    = "b7";
     var kCBAdvertisementDataIsConnectable               = "b8";
     var kCBAdvertisementDataTxPowerLevel                = "b9";
+    var kPeripheralBtAddress                            = "c1";
     
     //Will Restore State Keys
     var kCBCentralManagerRestoredStatePeripheralsKey    = "da";
