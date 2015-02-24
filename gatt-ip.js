@@ -455,6 +455,19 @@ function GATTIP() {
             
             _gattip.write(kWriteCharacteristicValue, params);
         };
+
+	this.writeWithResType = function(data, restype, callback){
+            if(callback) this.onread = callback;
+
+            var params = {};
+            params[kPeripheralUUID] = _peripheral.uuid;
+            params[kServiceUUID] = _service.uuid;
+            params[kCharacteristicUUID] = this.uuid;
+            params[kValue] = data;
+	    params[kWriteType] = restype;
+
+            _gattip.write(kWriteCharacteristicValue, params);
+        };
         
         this.onwrite = function(params, error) {
         };
