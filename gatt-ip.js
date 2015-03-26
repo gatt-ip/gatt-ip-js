@@ -1,25 +1,25 @@
 function GATTIP() {
 
-	var _socket;
+    var _socket;
     this.state=GATTIP.kUnknown;
     this.peripherals = {};
     
-	this.init = function(server, callback) {
-		if(callback) this.oninit = callback;
-		
-		_socket = new WebSocket(server);
+    this.init = function(server, callback) {
+        if(callback) this.oninit = callback;
         
-    	_socket.onopen = function(){
-        	this.oninit();
+        _socket = new WebSocket(server);
+        
+        _socket.onopen = function(){
+            this.oninit();
         }.bind(this);
     
-	    _socket.onclose = function(mesg) {
-    	}.bind(this);
+        _socket.onclose = function(mesg) {
+        }.bind(this);
 
-	    _socket.onerror = function(mesg){
-	    }.bind(this);
-	    
-	    _socket.onmessage = function(mesg){
+        _socket.onerror = function(mesg){
+        }.bind(this);
+        
+        _socket.onmessage = function(mesg){
             var response = JSON.parse(mesg.data);
             var peripheral, service, characteristic;
             
@@ -35,15 +35,13 @@ function GATTIP() {
                                                     response.params[kPeripheralName],
                                                     response.params[kPeripheralUUID],
                                                     response.params[kAdvertisementDataKey],
-                                                    response.params[kRSSIkey],
-                                                    response.params[kPeripheralBtAddress]);
+                                                    response.params[kRSSIkey]);
                         this.peripherals[response.params[kPeripheralUUID]] = peripheral;
                     } else {
                         peripheral.name = response.params[kPeripheralName];
                         peripheral.uuid = response.params[kPeripheralUUID];
                         peripheral.advertisement = response.params[kAdvertisementDataKey];
                         peripheral.rssi = response.params[kRSSIkey];
-                        peripheral.addr = response.params[kPeripheralBtAddress]; 
                     }
                     
                     this.onscan(peripheral,response.error);
@@ -212,13 +210,13 @@ function GATTIP() {
     this.oninit = function(params, error){};
     
     this.configure = function(pwrAlert, centralID, callback) {
-		if(callback) this.onconfigure = callback;
+        if(callback) this.onconfigure = callback;
         
         var params = {};
         params[kShowPowerAlert] = pwrAlert;
         params[kIdentifierKey] = centralID;
         
-	    this.write(kConfigure, params);
+        this.write(kConfigure, params);
     };
     
     this.onconfigure = function(params, error){};
@@ -261,7 +259,7 @@ function GATTIP() {
     
     this.onclose = function(params, error){};
     
-	this.write = function (method, params, id) {
+    this.write = function (method, params, id) {
         var mesg={};
         mesg.jsonrpc = "2.0";
         mesg.method = method;
@@ -280,13 +278,12 @@ function GATTIP() {
         _socket.send(mesg);
     };
     
-    function Peripheral(gattip, name, uuid, addata, rssi, addr) {
+    function Peripheral(gattip, name, uuid, addata, rssi) {
         var _gattip = gattip;
         this.name = name;
         this.uuid = uuid;
         this.advertisementData = addata;
         this.rssi = rssi;
-        this.addr = addr;        
         this.isConnected = false;
         this.services = {};
         
@@ -593,7 +590,6 @@ function GATTIP() {
     var kCBAdvertisementDataSolicitedServiceUUIDsKey    = "b7";
     var kCBAdvertisementDataIsConnectable               = "b8";
     var kCBAdvertisementDataTxPowerLevel                = "b9";
-    var kPeripheralBtAddress                            = "c1";
     
     //Will Restore State Keys
     var kCBCentralManagerRestoredStatePeripheralsKey    = "da";
