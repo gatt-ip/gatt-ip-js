@@ -3,7 +3,12 @@ function GATTIP() {
 	var _socket;
     this.state=GATTIP.kUnknown;
     this.peripherals = {};
-
+    var serviceNames;
+    var characteristicNames;
+    var descriptorNames;
+    var path = "lib/gatt-ip-js/"; // Replace the path to json configuration file.
+    
+    
 	this.init = function(server, callback) {
 		if(callback) this.oninit = callback;
 		
@@ -262,7 +267,6 @@ function GATTIP() {
         var params = {};
         params[kScanOptionAllowDuplicatesKey] = scanDuplicates;
         params[kServiceUUIDs] = services;
-        //params[kScanTime] = scantime;
                 
         this.write(kScanForPeripherals, params);
     };
@@ -352,9 +356,33 @@ function GATTIP() {
                 var advdataLength = parseInt(advdata[0],16);
                 this.txpowerLevel = parseInt(advdata[2]);
                 advdata.splice(0, advdataLength+1);
-            } else if(advdata[1] == GATTIP.GAP_ADTYPE_16BIT_SERVICEUUID) {
+            } else if(advdata[1] == GATTIP.GAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID || advdata[1] == GATTIP.GAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID) {
                 var advdataLength = parseInt(advdata[0],16);
-                this.serviceUUIDs[0]  = advdata[3] + advdata[2];
+                var reverseUUID = '';
+                for(var i = advdataLength; i >= 2; i--) {
+                    reverseUUID += advdata[i];
+                }
+                this.serviceUUIDs[0]  = reverseUUID;
+                advdata.splice(0, advdataLength+1);
+            } else if(advdata[1] == GATTIP.GAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID || advdata[1] == GATTIP.GAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID) {
+                var advdataLength = parseInt(advdata[0],16);
+                var reverseUUID = '';
+                for(var i = advdataLength; i >= 2; i--) {
+                    reverseUUID += advdata[i];
+                }
+                this.serviceUUIDs[0]  = reverseUUID;
+                advdata.splice(0, advdataLength+1);
+            } else if(advdata[1] == GATTIP.GAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID || advdata[1] == GATTIP.GAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID) {
+                var advdataLength = parseInt(advdata[0],16);
+                var reverseUUID = '';
+                for(var i = advdataLength; i >= 2; i--) {
+                    reverseUUID += advdata[i];
+                    if(i == 14 || i == 12 || i == 10 || i == 8) {
+                        reverseUUID += "-";
+                    }
+                }
+                
+                this.serviceUUIDs[0]  = reverseUUID;
                 advdata.splice(0, advdataLength+1);
             } else if(advdata[1] == GATTIP.GAP_ADTYPE_MANUFACTURER_SPECIFIC) {
                 var advdataLength = parseInt(advdata[0],16);
@@ -382,6 +410,16 @@ function GATTIP() {
         };
         
         this.onconnect = function(error) {
+            $.getJSON(path+"bleServices.json", function(res) {
+                    serviceNames = res;
+            });
+            $.getJSON(path+"bleCharacteristics.json", function(res) {
+                   characteristicNames = res;
+            });
+            $.getJSON(path+"bleDescriptors.json", function(res) {
+                    descriptorNames = res;
+            });
+
             this.isConnected = true;
         };
         
@@ -437,6 +475,17 @@ function GATTIP() {
         var _peripheral = peripheral;
         this.uuid = uuid;
        
+        if(uuid.length === 4) {
+            if(serviceNames) {
+               var uuidObj = serviceNames[uuid];
+               if(uuidObj != null ) {
+                   this.serviceName = uuidObj["name"];
+               } else
+                   this.serviceName = uuid;
+            } else
+                this.serviceName = uuid;
+        } else
+            this.serviceName = uuid;
         this.isPrimary = true; //TODO: read from remote
         this.characteristics = {};
         this.includedServices = {};
@@ -482,6 +531,17 @@ function GATTIP() {
         var _service = service;
         this.uuid = uuid;
         
+        if(uuid.length === 4) {
+            if(characteristicNames) {
+                var uuidObj = characteristicNames[uuid];
+                if(uuidObj != null ) {
+                    this.characteristicName = uuidObj["name"];
+                } else
+                    this.characteristicName = uuid;
+            } else
+                this.characteristicName = uuid;
+        } else
+            this.characteristicName = uuid;
         this.descriptors = {};
         this.properties = {};
         this.value = {};
@@ -594,6 +654,17 @@ function GATTIP() {
         var _characteristic = characteristic;
         this.uuid = uuid;
        
+        if(uuid.length === 4) {
+            if(descriptorNames) {
+                var uuidObj = descriptorNames[uuid];
+                if(uuidObj != null ) {
+                    this.descriptorName = uuidObj["name"];
+                } else
+                    this.descriptorName = uuid;
+            } else
+                this.descriptorName = uuid;
+        } else
+            this.descriptorName = uuid;
         this.value = "";
     }
     
@@ -674,8 +745,8 @@ function GATTIP() {
     var kCBAdvertisementDataIsConnectable               = "b8";
     var kCBAdvertisementDataTxPowerLevel                = "b9";
     var kPeripheralBtAddress                            = "c1";
-    var kRawAdvertisementData                           = "c2";
-    var kScanRecord                                     = "c3";
+    var kRawAdvertisementData                       = "c2";
+    var kScanRecord                                        = "c3";
 
     
     //Will Restore State Keys
@@ -725,7 +796,12 @@ GATTIP.kError32603                       = "-32603";//generic error message
 GATTIP.kParseError                       = "-32700";
 
 GATTIP.GAP_ADTYPE_FLAGS             = "01";
-GATTIP.GAP_ADTYPE_16BIT_SERVICEUUID  = "02";
+GATTIP.GAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID  = "02";
+GATTIP.GAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID  = "03";
+GATTIP.GAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID  = "04";
+GATTIP.GAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID  = "05";
+GATTIP.GAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID  = "06";
+GATTIP.GAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID  = "07";
 GATTIP.GAP_ADTYPE_POWER_LEVEL = "0A";
 GATTIP.GAP_ADTYPE_MANUFACTURER_SPECIFIC = "FF";
 
