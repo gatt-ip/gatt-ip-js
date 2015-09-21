@@ -34,24 +34,14 @@ function GATTIP() {
                     if (response.params && response.params[kPeripheralUUID])
                         peripheral = this.peripherals[response.params[kPeripheralUUID]];
                     if (!response.error) {
-
-                        if (!peripheral) {
-                            peripheral = new Peripheral(this,
-                                response.params[kPeripheralName],
-                                response.params[kPeripheralUUID],
-                                response.params[kAdvertisementDataKey],
-                                response.params[kScanRecord],
-                                response.params[kRSSIkey],
-                                response.params[kPeripheralBtAddress]);
-                            this.peripherals[response.params[kPeripheralUUID]] = peripheral;
-                        } else {
-                            peripheral.name = response.params[kPeripheralName];
-                            peripheral.uuid = response.params[kPeripheralUUID];
-                            peripheral.advertisement = response.params[kAdvertisementDataKey];
-                            peripheral.scanData = response.params[kScanRecord];
-                            peripheral.rssi = response.params[kRSSIkey];
-                            peripheral.addr = response.params[kPeripheralBtAddress];
-                        }
+                        peripheral = new Peripheral(this,
+                            response.params[kPeripheralName],
+                            response.params[kPeripheralUUID],
+                            response.params[kAdvertisementDataKey],
+                            response.params[kScanRecord],
+                            response.params[kRSSIkey],
+                            response.params[kPeripheralBtAddress]);
+                        this.peripherals[response.params[kPeripheralUUID]] = peripheral;
                     }
                     this.onscan(peripheral, response.error);
                     break;
@@ -252,7 +242,6 @@ function GATTIP() {
         var params = {};
         params[kShowPowerAlert] = pwrAlert;
         params[kIdentifierKey] = centralID;
-
         this.write(kConfigure, params);
     };
 
@@ -265,7 +254,6 @@ function GATTIP() {
         var params = {};
         params[kScanOptionAllowDuplicatesKey] = scanDuplicates;
         params[kServiceUUIDs] = services;
-
         this.write(kScanForPeripherals, params);
     };
 
@@ -275,7 +263,6 @@ function GATTIP() {
         if (callback) this.onscan = callback;
 
         var params = {};
-
         this.write(kStopScanning, params);
     };
 
@@ -302,8 +289,8 @@ function GATTIP() {
         mesg.jsonrpc = "2.0";
         mesg.method = method;
         mesg.params = params;
-        mesg.id = id;
-
+        mesg.id = GATTIP.id.toString();
+        GATTIP.id += 1;
         this.send(JSON.stringify(mesg));
     };
 
@@ -331,70 +318,39 @@ function GATTIP() {
         this.services = {};
         var flag = true;
         //parse advertising data
-        var advdata = new Array();
+        this.advdata = new Array();
         if (this.rawAdvertisingData.length % 2 == 0) {
             for (var i = 0; i < this.rawAdvertisingData.length; i = i + 2) {
-                advdata[i / 2] = this.rawAdvertisingData.charAt(i) + this.rawAdvertisingData.charAt(i + 1);
+                this.advdata[i / 2] = this.rawAdvertisingData.charAt(i) + this.rawAdvertisingData.charAt(i + 1);
             }
         } else {
             for (var i = 0; i < this.rawAdvertisingData.length; i++) {
-                advdata[i] = this.rawAdvertisingData.charAt(2 * i) + this.rawAdvertisingData.charAt(2 * i + 1);
+                this.advdata[i] = this.rawAdvertisingData.charAt(2 * i) + this.rawAdvertisingData.charAt(2 * i + 1);
             }
         }
 
         do {
-            if (advdata[1] == GATTIP.GAP_ADTYPE_FLAGS) {
-                var advdataLength = parseInt(advdata[0], 16);
-                if (parseInt(advdata[2], 16) >= 1) {
-                    this.discoverable = "true";
-                } else
-                    this.discoverable = "false";
-                advdata.splice(0, advdataLength + 1);
-            } else if (advdata[1] == GATTIP.GAP_ADTYPE_POWER_LEVEL) {
-                var advdataLength = parseInt(advdata[0], 16);
-                this.txpowerLevel = parseInt(advdata[2]);
-                advdata.splice(0, advdataLength + 1);
-            } else if (advdata[1] == GATTIP.GAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID || advdata[1] == GATTIP.GAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID) {
-                var advdataLength = parseInt(advdata[0], 16);
-                var reverseUUID = '';
-                for (var i = advdataLength; i >= 2; i--) {
-                    reverseUUID += advdata[i];
-                }
-                this.serviceUUIDs[0] = reverseUUID;
-                advdata.splice(0, advdataLength + 1);
-            } else if (advdata[1] == GATTIP.GAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID || advdata[1] == GATTIP.GAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID) {
-                var advdataLength = parseInt(advdata[0], 16);
-                var reverseUUID = '';
-                for (var i = advdataLength; i >= 2; i--) {
-                    reverseUUID += advdata[i];
-                }
-                this.serviceUUIDs[0] = reverseUUID;
-                advdata.splice(0, advdataLength + 1);
-            } else if (advdata[1] == GATTIP.GAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID || advdata[1] == GATTIP.GAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID) {
-                var advdataLength = parseInt(advdata[0], 16);
-                var reverseUUID = '';
-                for (var i = advdataLength; i >= 2; i--) {
-                    reverseUUID += advdata[i];
-                    if (i == 14 || i == 12 || i == 10 || i == 8) {
-                        reverseUUID += "-";
-                    }
-                }
-
-                this.serviceUUIDs[0] = reverseUUID;
-                advdata.splice(0, advdataLength + 1);
-            } else if (advdata[1] == GATTIP.GAP_ADTYPE_MANUFACTURER_SPECIFIC) {
-                var advdataLength = parseInt(advdata[0], 16);
-                for (var k = 2; k <= advdataLength; k++) {
-                    this.manufacturerData += advdata[k];
-                }
-                advdata.splice(0, advdataLength + 1);
-            } else if (advdata[1] == "00") {
-                advdata.splice(0, 1);
+            if (this.advdata[1] == GATTIP.kGAP_ADTYPE_FLAGS) {
+                getDiscoverable(this);
+            } else if (this.advdata[1] == GATTIP.kGAP_ADTYPE_POWER_LEVEL) {
+                getTXLevel(this);
+            } else if (this.advdata[1] == GATTIP.kGAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID || this.advdata[1] == GATTIP.kGAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID) {
+                getServiceUUIDs(this);
+            } else if (this.advdata[1] == GATTIP.kGAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID || this.advdata[1] == GATTIP.kGAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID) {
+                getServiceUUIDs(this);
+            } else if (this.advdata[1] == GATTIP.kGAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID || this.advdata[1] == GATTIP.kGAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID) {
+                get128bitServiceUUIDs(this);
+            } else if (this.advdata[1] == GATTIP.kGAP_ADTYPE_MANUFACTURER_SPECIFIC) {
+                getManufacturerData(this);
+            } else if(this.advdata[1] == GATTIP.kGAP_ADTYPE_16BIT_SERVICE_DATA) {
+                getServiceData(this);
+            } else if (this.advdata[1] == "00") {
+                this.advdata.splice(0, 1);
             } else {
-                var advdataLength = parseInt(advdata[0], 16);
-                advdata.splice(0, advdataLength + 1);
+                var advdataLength = parseInt(this.advdata[0], 16);
+                this.advdata.splice(0, advdataLength + 1);
             }
-            if (advdata.length == 0)
+            if (this.advdata.length == 0)
                 flag = false;
         } while (flag);
 
@@ -403,7 +359,6 @@ function GATTIP() {
 
             var params = {};
             params[kPeripheralUUID] = this.uuid;
-
             _gattip.write(kConnect, params);
         };
 
@@ -426,7 +381,6 @@ function GATTIP() {
 
             var params = {};
             params[kPeripheralUUID] = this.uuid;
-
             _gattip.write(kDisconnect, params);
         };
 
@@ -439,7 +393,6 @@ function GATTIP() {
 
             var params = {};
             params[kPeripheralUUID] = this.uuid;
-
             _gattip.write(kGetServices, params);
         };
 
@@ -466,6 +419,155 @@ function GATTIP() {
         this.onupdateRSSI = function(params, error) {
             console.log("kGetRSSI event"); //TODO
         };
+    }
+
+    function getDiscoverable(peripheral) {
+        var advdataLength = parseInt(peripheral.advdata[0], 16);
+        if (parseInt(peripheral.advdata[2], 16) >= 1) {
+            peripheral.discoverable = "true";
+        } else
+            peripheral.discoverable = "false";
+        peripheral.advdata.splice(0, advdataLength + 1);
+    }
+    
+    function getTXLevel(peripheral) {
+        var advdataLength = parseInt(peripheral.advdata[0], 16);
+        peripheral.txpowerLevel = parseInt(peripheral.advdata[2]);
+        peripheral.advdata.splice(0, advdataLength + 1);
+    }
+    
+    function getManufacturerData(peripheral) {
+        var advdataLength = parseInt(peripheral.advdata[0], 16);
+        for (var k = 2; k <= advdataLength; k++) {
+            peripheral.manufacturerData += peripheral.advdata[k];
+        }
+        peripheral.advdata.splice(0, advdataLength + 1);
+    }
+    function getServiceUUIDs(peripheral) {
+        var advdataLength = parseInt(peripheral.advdata[0], 16);
+        var reverseUUID = '';
+        for (var i = advdataLength; i >= 2; i--) {
+            reverseUUID += peripheral.advdata[i];
+        }
+        peripheral.serviceUUIDs[0] = reverseUUID;
+        peripheral.advdata.splice(0, advdataLength + 1);
+    }
+    
+    function get128bitServiceUUIDs(peripheral) {
+        var advdataLength = parseInt(peripheral.advdata[0], 16);
+        var reverseUUID = '';
+        for (var i = advdataLength; i >= 2; i--) {
+            reverseUUID += peripheral.advdata[i];
+            if (i == 14 || i == 12 || i == 10 || i == 8) {
+                reverseUUID += "-";
+            }
+        }
+        peripheral.serviceUUIDs[0] = reverseUUID;
+        peripheral.advdata.splice(0, advdataLength + 1);
+    }
+    
+    function getServiceData(peripheral) {
+        var advdataLength = parseInt(peripheral.advdata[0],16);
+        var eddystoneServiceUUID = '';
+        for(var i = 3; i >= 2; i--) {
+            eddystoneServiceUUID += peripheral.advdata[i];
+        }
+        if(eddystoneServiceUUID == 'FEAA') {
+            if(parseInt(peripheral.advdata[4],16) == 0) {
+                getUID(peripheral);
+            } else if(parseInt(peripheral.advdata[4],16) == 16) {
+                getURL(peripheral);
+            } else if(parseInt(peripheral.advdata[4],16) == 32){
+                getTLM(peripheral);
+            }
+        }
+        peripheral.advdata.splice(0, advdataLength+1);
+    }
+    
+    function getUID(peripheral) {
+        peripheral.frameType = 'UID';
+        peripheral.nameSpace = '';
+        peripheral.instanceID = '';
+        peripheral.txpowerLevel = parseInt(peripheral.advdata[5], 16);
+        for(var i = 6; i < 16; i++) {
+            peripheral.nameSpace += peripheral.advdata[i];
+        }
+        for(var i = 16; i < 22; i++) {
+            peripheral.instanceID += peripheral.advdata[i];
+        }
+        peripheral.reserved = peripheral.advdata[22];
+        peripheral.reserved += peripheral.advdata[23];
+    }
+    
+    function getURL(peripheral) {
+        peripheral.frameType = 'URL';
+        peripheral.txpowerLevel = parseInt(peripheral.advdata[5]);
+        for(var protocol in GATTIP.AllProtocols) {
+            if(advdata[6] == protocol)
+                peripheral.url = GATTIP.AllProtocols[protocol];
+        }
+        for(var i = 7; i < advdataLength; i++) {
+            peripheral.url += String.fromCharCode(parseInt(peripheral.advdata[i], 16));
+        }
+        for(var domain in GATTIP.AllDomains) {
+            if(peripheral.advdata[advdataLength] == domain)
+                peripheral.url += GATTIP.AllDomains[domain];
+        }
+    }
+    
+    function getTLM(peripheral) {
+        peripheral.frameType = 'TLM';
+        peripheral.advPacketCount = '';
+        peripheral.timeInterval = '';
+        peripheral.batteryVoltage = '';
+        peripheral.eddyVersion = parseInt(peripheral.advdata[5],16);
+        for(var i = 6; i <  8; i++) {
+            peripheral.batteryVoltage += peripheral.advdata[i];
+        }
+        peripheral.batteryVoltage = parseInt(peripheral.batteryVoltage, 16);
+        peripheral.temperature = Math.ceil(parseInt(peripheral.advdata[8],16));
+        peripheral.temperature += '.';
+        var temp = Math.ceil(((1/256) *parseInt(peripheral.advdata[9],16)));
+        if(temp.length > 2)
+            peripheral.temperature += temp.toString().substring(0, 2);
+        else
+            peripheral.temperature += temp;
+        for(var i = 10; i < 14; i++) {
+            peripheral.advPacketCount += peripheral.advdata[i];
+        }
+        peripheral.advPacketCount = parseInt(peripheral.advPacketCount, 16);
+        for(var i = 14; i < 18; i++) {
+            peripheral.timeInterval += peripheral.advdata[i];
+        }
+        peripheral.timeInterval = Math.ceil(parseInt(peripheral.timeInterval, 16) * 0.1);
+        peripheral.timePeriod = '';
+        if(peripheral.timeInterval >= 60)  {
+            var days = Math.floor(peripheral.timeInterval / 86400);
+            if(days > 0) {
+                peripheral.timePeriod += days < 10 ? days+'day ' : days+'days ';
+                peripheral.timeInterval -= days*24*60*60;
+            }
+            var hours = Math.floor(peripheral.timeInterval / 3600);
+            if(hours > 0) {
+                peripheral.timePeriod += hours < 10 ? '0'+hours+':' : hours+':';
+                peripheral.timeInterval -= hours*60*60;
+            } else
+                peripheral.timePeriod += '00:';
+            var min = Math.floor(peripheral.timeInterval / 60);
+            if(min > 0) {
+                peripheral.timePeriod += min < 10 ? '0'+min+':' : min+':';
+                peripheral.timeInterval -= min*60;
+                peripheral.timePeriod += peripheral.timeInterval < 10 ? '0'+peripheral.timeInterval : peripheral.timeInterval;
+                peripheral.timePeriod += ' secs';
+                peripheral.timeInterval = 0;
+            } else {
+                peripheral.timePeriod += '00:'+peripheral.timeInterval;
+                peripheral.timeInterval = 0;
+            }
+        } else if(peripheral.timeInterval > 0 && peripheral.timeInterval < 60) {
+            peripheral.timePeriod += peripheral.timeInterval < 10 ? '00:00:0'+peripheral.timeInterval : '00:00:'+peripheral.timeInterval;
+            peripheral.timePeriod += ' secs';
+        }
     }
 
     function Service(gattip, peripheral, uuid) {
@@ -498,7 +600,6 @@ function GATTIP() {
             var params = {};
             params[kPeripheralUUID] = _peripheral.uuid;
             params[kServiceUUID] = this.uuid;
-
             _gattip.write(kGetCharacteristics, params);
         };
 
@@ -554,7 +655,6 @@ function GATTIP() {
             params[kPeripheralUUID] = _peripheral.uuid;
             params[kServiceUUID] = _service.uuid;
             params[kCharacteristicUUID] = this.uuid;
-
             _gattip.write(kGetDescriptors, params);
         };
 
@@ -576,7 +676,6 @@ function GATTIP() {
             params[kPeripheralUUID] = _peripheral.uuid;
             params[kServiceUUID] = _service.uuid;
             params[kCharacteristicUUID] = this.uuid;
-
             _gattip.write(kGetCharacteristicValue, params);
         };
 
@@ -604,7 +703,6 @@ function GATTIP() {
             params[kCharacteristicUUID] = this.uuid;
             params[kValue] = data;
             params[kWriteType] = restype;
-
             _gattip.write(kWriteCharacteristicValue, params);
         };
 
@@ -668,11 +766,11 @@ function GATTIP() {
     }
 
     //-------------------------------------- GATT-IP Constants ----------------------------------------
-    var kError          =   "error";
-    var kCode           =   "code";
-    var kMessageField   =   "message";
-    var kResult         =   "result";
-    var kIdField        =   "id";
+    var kError              =   "error";
+    var kCode               =   "code";
+    var kMessageField       =   "message";
+    var kResult             =   "result";
+    var kIdField            =   "id";
 
     //-------------------------------------- Methods ----------------------------------------
     //Central Methods
@@ -794,14 +892,18 @@ GATTIP.kInvalidParams       =   "-32602";
 GATTIP.kError32603          =   "-32603"; //generic error message
 GATTIP.kParseError          =   "-32700";
 
-GATTIP.GAP_ADTYPE_FLAGS                         =   "01";
-GATTIP.GAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID  =   "02";
-GATTIP.GAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID    =   "03";
-GATTIP.GAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID  =   "04";
-GATTIP.GAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID    =   "05";
-GATTIP.GAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID =   "06";
-GATTIP.GAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID   =   "07";
-GATTIP.GAP_ADTYPE_POWER_LEVEL                   =   "0A";
-GATTIP.GAP_ADTYPE_MANUFACTURER_SPECIFIC         =   "FF";
+GATTIP.kGAP_ADTYPE_FLAGS                         =   "01";
+GATTIP.kGAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID  =   "02";
+GATTIP.kGAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID    =   "03";
+GATTIP.kGAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID  =   "04";
+GATTIP.kGAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID    =   "05";
+GATTIP.kGAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID =   "06";
+GATTIP.kGAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID   =   "07";
+GATTIP.kGAP_ADTYPE_POWER_LEVEL                   =   "0A";
+GATTIP.kGAP_ADTYPE_MANUFACTURER_SPECIFIC         =   "FF";
+GATTIP.kGAP_ADTYPE_16BIT_SERVICE_DATA            =   "16";
+
+GATTIP.id = 1;
+
 
 GATTIP.AllProperties = ["Broadcast", "Read", "WriteWithoutResponse", "Write", "Notify", "Indicate", "AuthenticatedSignedWrites", "ExtendedProperties", "NotifyEncryptionRequired", "IndicateEncryptionRequired"];
