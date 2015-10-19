@@ -267,6 +267,11 @@ function GATTIP() {
     };
 
     this.onstopScan = function(params, error) {};
+    
+    this.centralState = function() {
+        var params = {};
+        this.write(kCentralState, params);
+    };
 
     this.onstate = function(state, error) {};
 
