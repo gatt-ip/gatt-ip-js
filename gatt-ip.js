@@ -273,6 +273,11 @@ function GATTIP() {
         this.write(kCentralState, params);
     };
 
+    this.centralState = function() {
+        var params = {};
+        this.write(kCentralState, params);
+    };
+
     this.onstate = function(state, error) {};
 
     this.onupdateRSSI = function(peripheral, error) {};
@@ -772,8 +777,8 @@ function GATTIP() {
 
     //-------------------------------------- GATT-IP Constants ----------------------------------------
     var kError              =   "error";
-    var kCode               =   "code";
-    var kMessageField       =   "message";
+    var kCode              =   "code";
+    var kMessageField   =   "message";
     var kResult             =   "result";
     var kIdField            =   "id";
 
@@ -906,7 +911,7 @@ GATTIP.kGAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID =   "06";
 GATTIP.kGAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID   =   "07";
 GATTIP.kGAP_ADTYPE_POWER_LEVEL                   =   "0A";
 GATTIP.kGAP_ADTYPE_MANUFACTURER_SPECIFIC         =   "FF";
-GATTIP.kGAP_ADTYPE_16BIT_SERVICE_DATA            =   "16";
+GATTIP.kGAP_ADTYPE_16BIT_SERVICE_DATA                = "16";
 
 GATTIP.id = 1;
 
