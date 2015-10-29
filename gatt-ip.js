@@ -273,11 +273,6 @@ function GATTIP() {
         this.write(kCentralState, params);
     };
 
-    this.centralState = function() {
-        var params = {};
-        this.write(kCentralState, params);
-    };
-
     this.onstate = function(state, error) {};
 
     this.onupdateRSSI = function(peripheral, error) {};
