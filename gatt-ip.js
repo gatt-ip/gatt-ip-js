@@ -580,7 +580,7 @@ function GATTIP() {
         var _peripheral = peripheral;
         this.uuid = uuid;
 
-        if (uuid.length === 4) {
+        if (uuid && uuid.length === 4) {
             if (serviceNames) {
                 var uuidObj = serviceNames[uuid];
                 if (uuidObj != null) {
@@ -637,7 +637,7 @@ function GATTIP() {
         var _service = service;
         this.uuid = uuid;
 
-        if (uuid.length === 4) {
+        if (uuid && uuid.length === 4) {
             if (characteristicNames) {
                 var uuidObj = characteristicNames[uuid];
                 if (uuidObj != null) {
@@ -756,7 +756,7 @@ function GATTIP() {
         var _characteristic = characteristic;
         this.uuid = uuid;
 
-        if (uuid.length === 4) {
+        if (uuid && uuid.length === 4) {
             if (descriptorNames) {
                 var uuidObj = descriptorNames[uuid];
                 if (uuidObj != null) {
