@@ -5,7 +5,7 @@
   "authors": [
     "vensi.com"
   ],
-  "description": "Gattip JS file",
+  "description": "GATT-IP library is A simple javascript protocol to connect any Bluetooth Smart (GATT) Device to the IP network",
   "main": "gatt-ip.js",
   "keywords": [
     "gattip",
