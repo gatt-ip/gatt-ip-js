@@ -1,0 +1,36 @@
+{
+  "name": "gatt-ip-js",
+  "version": "1.1.2",
+  "description": "GATT-IP library is A simple javascript protocol to connect any Bluetooth Smart (GATT) Device to the IP network",
+  "main": "gatt-ip.js",
+  "ignore": [
+    "bowser.json",
+    "test/",
+  ],  
+  "scripts": {
+    "test": "node gatt-ip"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gatt-ip/gatt-ip-js.git"
+  },
+  "keywords": [
+    "gatt-ip",
+    "gattip",
+    "ble",
+    "vensi",
+    "blueapp",
+    "blueapp.io"
+  ],
+  "author": "Kushal Kumar <kushal@vensi.com> (http://www.vensi.com/)",
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/blueappio/blueapp/blob/master/LICENSE-MIT"
+    }
+  ],
+  "bugs": {
+    "url": "https://github.com/gatt-ip/gatt-ip-js/issues"
+  },
+  "homepage": "https://github.com/gatt-ip/gatt-ip-js#readme"
+}
