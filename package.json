@@ -5,7 +5,7 @@
   "main": "gatt-ip.js",
   "ignore": [
     "bowser.json",
-    "test/",
+    "test/"
   ],  
   "scripts": {
     "test": "node gatt-ip"
