@@ -1,5 +1,5 @@
-function GATTIP() {
-    var client;
+function GATTIPSERVER() {
+    var server;
     this.state = C.kUnknown;
     this.peripherals = {};
 
@@ -15,314 +15,468 @@ function GATTIP() {
         }
         
         socket.onopen = function () {
-            this.initWithClient(socket);
+            this.initWithServer(socket);
             if (this.oninit) {
                 this.oninit();
             }
         }.bind(this);
     };
-    
-    this.initWithClient = function (_client) {
-        client = _client;
-        client.onmessage = this.processMessage.bind(this);
-    }
-    
+
+    this.initWithServer = function (_server) {
+        server = _server;
+
+        if (!server.send) {
+            throw Error('server must implement the send method');
+        }
+        server.onmessage = this.processMessage.bind(this);
+
+        if (!server.onclose) {
+            server.onclose = function () {
+                console.log('socket is closed')
+            };
+        }
+        if (!server.onerror) {
+            server.onerror = function (error) {
+                console.log('socket is onerror, onerror'+error);
+            };
+        }
+        if (!server.error) {
+            server.onerror = function (error) {
+                console.log('socket is error, error'+error);
+            };
+        }
+    };
+
     this.processMessage = function (mesg) {
-        console.log('processMessage'+mesg);
-        var response = JSON.parse(mesg.data);
-        var peripheral, service, characteristic;
+        var message = JSON.parse(mesg.data);
+        var params, peripheral, service, characteristic;
+        console.log(message);
+
+        if ( (typeof message === 'undefined') || (!message) ){
+            params = {};
+            params[C.kCode] = C.kInvalidRequest;;
+            this.write(C.kError, params);
+            return;
+        }
         
-        switch (response.result) {
+        if(message.result && message.result == C.kMessage){
+            this.onauthenticate(message.params, message.error);
+            return;
+        }
+
+        switch (message.method) {
             case C.kConfigure:
-                this.onconfigure(response.params);
+                if(!this.configureRequest){
+                    throw Error('configureRequest method not implemented by server');                    
+                }
+                this.configureRequest(message.params, message.error);
                 break;
             case C.kScanForPeripherals:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
-                    peripheral = new Peripheral(this,
-                                                response.params[C.kPeripheralName],
-                                                response.params[C.kPeripheralUUID],
-                                                response.params[C.kAdvertisementDataKey],
-                                                response.params[C.kScanRecord],
-                                                response.params[C.kRSSIkey],
-                                                response.params[C.kPeripheralBtAddress]);
-                    this.peripherals[response.params[C.kPeripheralUUID]] = peripheral;
-                    this.onscan(peripheral);
-                } else {
-                    this.onGATTIPError(response.error);
+                if(!this.scanRequest){
+                    throw Error('scanRequest method not implemented by server');                    
                 }
+                this.scanRequest(message.params, message.error);
                 break;
             case C.kStopScanning:
-                if(!response.error) {
-                    this.onstopScan(response.params);
-                } else {
-                    this.onGATTIPError(response.error);
+                if(!this.stopScanRequest){
+                    throw Error('stopScanRequest method not implemented by server');                    
                 }
+                this.stopScanRequest(message.params, message.error);
                 break;
             case C.kConnect:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
-                    if (!peripheral) {
-                        console.log("unknown peripheral");
-                    } else {
-                        peripheral.onconnect(response.error);
-                    }
+                if(!this.connectRequest){
+                    throw Error('connectRequest method not implemented by server');                    
                 }
-                this.onconnect(peripheral, response.error);
+                peripheral = this.peripherals[message.params[C.kPeripheralUUID]];
+                if(peripheral)
+                    this.connectRequest(peripheral, message.error);
                 break;
             case C.kDisconnect:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
-                    if (!peripheral) {
-                        console.log("unknown peripheral");
-                    } else {
-                        peripheral.ondisconnect(peripheral.name, response.error);
-                    }
+                if(!this.disconnectRequest){
+                    throw Error('disconnectRequest method not implemented by server');                    
                 }
-                this.ondisconnect(peripheral, response.error);
+                peripheral = this.peripherals[message.params[C.kPeripheralUUID]];
+                if(peripheral)
+                    this.disconnectRequest(peripheral, message.error);
                 break;
             case C.kCentralState:
-                this.state = response.params[C.kState];
-                if(!response.error) {
-                    this.onstate(response.params[C.kState]);
-                } else {
-                    this.error(response.error);
+                if(!this.centralStateRequest){
+                    throw Error('centralStateRequest method not implemented by server');                    
                 }
+                this.centralStateRequest(message.params, message.error);
                 break;
             case C.kGetServices:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
-                    if (!peripheral) {
-                        console.log("unknown peripheral");
+                if (message.params && message.params[C.kPeripheralUUID])
+                        peripheral = this.peripherals[message.params[C.kPeripheralUUID]];
+                    if (!message.error) {
+                        if (!peripheral) {
+                            console.log("unknown peripheral");
+                            this.invalidParameters(message.method, C.kError32001);
+                        } else {
+                            peripheral.discoverServicesRequest(message.params, message.error);
+                        }
                     } else {
-                        peripheral.ondiscoverServices(response.params);
-                        this.ondiscoverServices(peripheral);
+                        this.invalidParameters(message.method, C.kInvalidRequest);
                     }
-                } else {
-                    this.onGATTIPError(response.error);
-                }
                 break;
+            case C.kGetIncludedServices:
+                console.log("kGetIncludedServices event"); //TODO
+                break;
+            case C.kInvalidatedServices:
+                console.log("kInvalidatedServices event"); //TODO
+                break;                
             case C.kGetCharacteristics:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
+                if (message.params && message.params[C.kPeripheralUUID]){
+                        peripheral = this.peripherals[message.params[C.kPeripheralUUID]];
                     if (!peripheral) {
                         console.log("unknown peripheral");
+                        this.invalidParameters(message.method, C.kError32001);
                     } else {
-                        service = peripheral.services[response.params[C.kServiceUUID]];
-                        service.ondiscoverCharacteristics(response.params);
-                        this.ondiscoverCharacteristics(peripheral, service);
+                        service = peripheral.services[message.params[C.kServiceUUID]];
+                        if(service){
+                            service.discoverCharacteristicsRequest(message.params, message.error);
+                        } else {
+                            console.log("unknown service");
+                            this.invalidParameters(message.method, C.kError32002);
+                        }
                     }
-                } else {
-                    this.onGATTIPError(response.error);
                 }
                 break;
             case C.kGetDescriptors:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
+                if (message.params && message.params[C.kPeripheralUUID]){
+                        peripheral = this.peripherals[message.params[C.kPeripheralUUID]];
                     if (!peripheral) {
                         console.log("unknown peripheral");
+                        this.invalidParameters(message.method, C.kError32001);
                     } else {
-                        service = peripheral.services[response.params[C.kServiceUUID]];
+                        service = peripheral.services[message.params[C.kServiceUUID]];
                         if (service) {
-                            characteristic = service.characteristics[response.params[C.kCharacteristicUUID]];
-                            characteristic.ondiscoverDescriptors(response.params);
+                            characteristic = service.characteristics[message.params[C.kCharacteristicUUID]];
+                            if(characteristic){
+                                characteristic.discoverDescriptorsRequest(message.params, message.error);
+                            } else {
+                                console.log("unknown characteristic");
+                            this.invalidParameters(message.method, C.kError32003);
+                            }
+                        } else {
+                            console.log("unknown service");
+                            this.invalidParameters(message.method, C.kError32002);
                         }
-                        this.ondiscoverDescriptors(peripheral, service, characteristic);
                     }
-                } else {
-                    this.onGATTIPError(response.error);
                 }
                 break;
             case C.kGetCharacteristicValue:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
+                if (message.params && message.params[C.kPeripheralUUID]){
+                        peripheral = this.peripherals[message.params[C.kPeripheralUUID]];
                     if (!peripheral) {
                         console.log("unknown peripheral");
+                        this.invalidParameters(message.method, C.kError32001);
                     } else {
-                        service = peripheral.services[response.params[C.kServiceUUID]];
+                        service = peripheral.services[message.params[C.kServiceUUID]];
                         if (service) {
-                            characteristic = service.characteristics[response.params[C.kCharacteristicUUID]];
-                            characteristic.onread(response.params);
+                            characteristic = service.characteristics[message.params[C.kCharacteristicUUID]];
+                            if(characteristic){
+                                characteristic.readRequest(message.params, message.error);
+                            } else {
+                                console.log("unknown characteristic");
+                            this.invalidParameters(message.method, C.kError32003);
+                            }
+                        } else {
+                            console.log("unknown service");
+                            this.invalidParameters(message.method, C.kError32002);
                         }
-                        this.onupdateValue(peripheral, service, characteristic);
                     }
-                } else {
-                    this.onGATTIPError(response.error);
                 }
                 break;
             case C.kWriteCharacteristicValue:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
+                if (message.params && message.params[C.kPeripheralUUID]){
+                        peripheral = this.peripherals[message.params[C.kPeripheralUUID]];
                     if (!peripheral) {
                         console.log("unknown peripheral");
+                            this.invalidParameters(message.method, C.kError32001);
                     } else {
-                        service = peripheral.services[response.params[C.kServiceUUID]];
+                        service = peripheral.services[message.params[C.kServiceUUID]];
                         if (service) {
-                            characteristic = service.characteristics[response.params[C.kCharacteristicUUID]];
-                            characteristic.onwrite(response.params);
+                            characteristic = service.characteristics[message.params[C.kCharacteristicUUID]];
+                            if (characteristic) {
+                                characteristic.writeRequest(message.params, message.error);
+                            } else {
+                                console.log("unknown characteristic");
+                            this.invalidParameters(message.method, C.kError32003);
+                            }
+                        } else {
+                            console.log("unknown service");
+                            this.invalidParameters(message.method, C.kError32002);
                         }
-                        this.onwriteValue(peripheral, service, characteristic);
                     }
-                } else {
-                    this.onGATTIPError(response.error);
                 }
                 break;
             case C.kSetValueNotification:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
+                if (message.params && message.params[C.kPeripheralUUID]){
+                        peripheral = this.peripherals[message.params[C.kPeripheralUUID]];
                     if (!peripheral) {
                         console.log("unknown peripheral");
+                            this.invalidParameters(message.method, C.kError32001);
                     } else {
-                        service = peripheral.services[response.params[C.kServiceUUID]];
+                        service = peripheral.services[message.params[C.kServiceUUID]];
                         if (service) {
-                            characteristic = service.characteristics[response.params[C.kCharacteristicUUID]];
+                            characteristic = service.characteristics[message.params[C.kCharacteristicUUID]];
                             if (characteristic) {
-                                characteristic.isNotifying = response.params[C.kIsNotifying];
-                                characteristic.value = response.params[C.kValue];
+                                characteristic.isNotifying = message.params[C.kValue];
+                                characteristic.notifyRequest(message.params, message.error);
+                            }else{
+                            this.invalidParameters(message.method, C.kError32003);
                             }
+                        } else {
+                            console.log("unknown service");
+                            this.invalidParameters(message.method, C.kError32002);
                         }
-                        this.onupdateValue(peripheral, service, characteristic);
                     }
-                } else {
-                    this.onGATTIPError(response.error);
                 }
                 break;
-            case C.kGetRSSI:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
-                    if (!peripheral) {
-                        console.log("unknown peripheral");
-                    } else {
-                        peripheral.name = response.params[C.kPeripheralName];
-                        peripheral.rssi = response.params[C.kRSSIkey];
-                        this.onupdateRSSI(peripheral);
-                    }
-                } else
-                    this.onGATTIPError(response.error);
+            case C.kGetDescriptorValue:
+                console.log("kGetDescriptorValue event"); //TODO
                 break;
-            case C.kPeripheralNameUpdate:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
-                    if (!peripheral) {
-                        console.log("unknown peripheral");
-                    } else {
-                        peripheral.name = response.params[C.kPeripheralName];
-                        peripheral.rssi = response.params[C.kRSSIkey];
-                        this.onupdateRSSI(peripheral);
-                    }
-                } else
-                    this.onGATTIPError(response.error);
+            case C.kWriteDescriptorValue:
+                console.log("kWriteDescriptorValue event"); //TODO
                 break;
-            case C.kMessage:
-                if(!response.error) {
-                    this.onMessage(response.params);
-                } else {
-                    this.onGATTIPError(response.error);
-                }
-                break;
+
             default:
-                console.log('invalid response');
+                console.log('invalid request');            
+
         }
     };
-    
-    this.oninit = function (params) {
+
+    this.invalidParameters = function(method, errorId) {
+        var error = {}, params = {};
+        error[kIdField] = errorId;
+        params[kError] = error;
+        this.write(method, params);        
     };
-    
-    this.configure = function (pwrAlert, centralID, callback) {
-        if (callback) this.onconfigure = callback;
-        
-        var params = {};
-        params[C.kShowPowerAlert] = pwrAlert;
-        params[C.kIdentifierKey] = centralID;
-        this.write(C.kConfigure, params);
+
+    this.authenticate = function(token){
+        this.send(JSON.stringify({
+            type: C.authenticate,
+            access_token: token
+        }));
     };
-    
-    this.onconfigure = function (params) {
+
+    this.configureResponse = function(params) {
+        this.write(C.kConfigure);
     };
-    
-    this.scan = function (scanDuplicates, services, callback) {
-        if (callback) this.onscan = callback;
-        this.peripherals = {};
-        var params = {};
-        params[C.kScanOptionAllowDuplicatesKey] = scanDuplicates;
-        params[C.kServiceUUIDs] = services;
-        this.write(C.kScanForPeripherals, params);
-    };
-    
-    this.onscan = function (params) {
-    };
-    
-    this.stopScan = function (callback) {
-        if (callback) this.onscan = callback;
-        
-        var params = {};
-        this.write(C.kStopScanning, params);
-    };
-    
-    this.onstopScan = function (params) {
-    };
-    
-    this.centralState = function () {
-        var params = {};
+
+    this.centralStateResponse = function(aparams) {
+        params = {};
+        mparams[C.kState] = aparams.state;
         this.write(C.kCentralState, params);
     };
-    
-    this.onstate = function (state) {
+
+    this.scanResponse = function(params) {
+        for (var uuid in this.peripherals) {
+            params = {};
+
+            var advData = {};
+            advData[C.kRawAdvertisementData] = this.peripherals[uuid].advertisementData;
+            params[C.kPeripheralName] = this.peripherals[uuid].name;
+            params[C.kPeripheralUUID] = this.peripherals[uuid].uuid;
+            params[C.kPeripheralBtAddress] = this.peripherals[uuid].addr;
+            params[C.kAdvertisementDataKey] = advData;
+            params[C.kRSSIkey] = this.peripherals[uuid].rssi;
+
+            this.write(C.kScanForPeripherals, params);
+        }        
     };
-    
-    this.onupdateRSSI = function (peripheral) {
+
+    this.stopScanResponse = function(params, error){
+        this.write(C.kStopScanning);
     };
-    
-    this.onerror = function (params, error) {
-        console.log('invalid parameters');
+
+    this.connectResponse = function(peripheral, error){
+        params = {};
+        params[C.kPeripheralUUID] = peripheral.uuid;
+        params[C.kPeripheralName] = peripheral.name;
+
+        this.write(C.kConnect, params);        
     };
-    
-    this.close = function (callback) {
-        if (client) {
-            client.close();
-        }
+
+    this.disconnectResponse = function(peripheral, error){
+        params = {};
+        params[C.kPeripheralUUID] = peripheral.uuid;
+        params[C.kPeripheralName] = peripheral.name;
+
+        this.write(C.kDisconnect, params);        
     };
-    
-    this.onclose = function (params, error) {
-    };
-    
-    this.write = function (method, params, id) {
-        console.log('method'+method);
+
+    this.write = function(result, params, id) {
         var mesg = {};
         mesg.jsonrpc = "2.0";
-        mesg.method = method;
+        mesg.result = result;
         mesg.params = params;
         mesg.id = C.id.toString();
         C.id += 1;
         this.send(JSON.stringify(mesg));
     };
-    
-    this.send = function (mesg) {
-        if (!client) {
+
+    this.send = function(mesg) {
+        if (!server) {
             this.onerror("not connected");
             return;
         }
-        
-        client.send(mesg);
+        console.log(mesg);
+        server.send(mesg);
     };
+
+    this.close = function(callback) {
+        if (server) {
+            server.close();
+        }
+    };
+
+    this.respondToReadRequest = function(peripheral, service, characteristic, error){
+
+        if(error){
+            this.errorRequest(C.kGetCharacteristicValue);
+        }else{
+            params = {};
+            params[C.kPeripheralUUID] = peripheral.uuid;
+            params[C.kServiceUUID] = service.uuid;
+            params[C.kCharacteristicUUID] = characteristic.uuid;        
+            params[C.kValue] = characteristic.value;
+
+            this.write(C.kGetCharacteristicValue, params);
+        }
+    };
+
+    this.respondToWriteRequest = function(peripheral, service, characteristic, value, error){
+
+        if(error){
+            this.errorRequest(C.kWriteCharacteristicValue);
+        }else{
+            params = {};
+            params[C.kPeripheralUUID] = peripheral.uuid;
+            params[C.kServiceUUID] = service.uuid;
+            params[C.kCharacteristicUUID] = characteristic.uuid;        
+            params[C.kValue] = value;
+
+            this.write(C.kWriteCharacteristicValue, params);
+        }
+    };
+
+    this.respondNotify = function(peripheral, service, characteristic, isNotifying, error){
+        params = {};
+        params[C.kPeripheralUUID] = peripheral.uuid;
+        params[C.kServiceUUID] = service.uuid;
+        params[C.kCharacteristicUUID] = characteristic.uuid;
+        params[C.kIsNotifying] = isNotifying;
+        params[C.kValue] = isNotifying;
+
+        this.write(C.kSetValueNotification, params);
+    };
+
+
+    this.addPeripheral = function(gattip, name, uuid, addata, scanData, rssi, addr) {
+        var peripheral = new Peripheral(gattip, name, uuid, addata, scanData, rssi, addr);
+        this.peripherals[peripheral.uuid] = peripheral;
+
+        return peripheral;
+    };
+
+    this.addServicesToPeripheral = function(gattip, peripheral, uuid) {
+        var service = new Service(gattip, peripheral, uuid);
+        peripheral.services[service.uuid] = service;
+        this.peripherals[peripheral.uuid] = peripheral;
+
+        return service;
+    };
+
+    this.addCharacteristicsToService = function(gattip, peripheral, service, uuid) {
+        var characteristic = new Characteristic(gattip, peripheral, service, uuid);
+        service.characteristics[characteristic.uuid] = characteristic;
+        peripheral.services[service.uuid] = service;
+        this.peripherals[peripheral.uuid] = peripheral;
+
+        return characteristic;
+    };
+
+    this.addDescriptorsToCharacteristics = function(gattip, peripheral, service, characteristic, uuid) {
+        var descriptor = new Descriptor(gattip, peripheral, service, characteristic, uuid);
+        characteristic.descriptors[descriptor.uuid] = descriptor;
+        service.characteristics[characteristic.uuid] = characteristic;
+        peripheral.services[service.uuid] = service;
+        this.peripherals[peripheral.uuid] = peripheral;
+
+        return descriptor;
+    };
+
+    this.updateValuesForCharacteristics = function(peripheral, service, characteristic, value) {
+        characteristic.value = value;
+        service.characteristics[characteristic.uuid] = characteristic;
+        peripheral.services[service.uuid] = service;
+        this.peripherals[peripheral.uuid] = peripheral;
+
+        return true;
+    };
+
+    this.updatePropertiesForCharacteristics = function(peripheral, service, characteristic, properties) {
+        characteristic.properties = properties;
+        service.characteristics[characteristic.uuid] = characteristic;
+        peripheral.services[service.uuid] = service;
+        this.peripherals[peripheral.uuid] = peripheral;
+
+        return true;
+    };
+
+    this.updateValuesForDescriptors = function(peripheral, service, characteristic, descriptor, value) {
+        descriptor.value = value;
+        characteristic.descriptors[descriptor.uuid] = descriptor;
+        mService.characteristics[characteristic.uuid] = characteristic;
+        peripheral.services[mService.uuid] = service;
+        this.peripherals[peripheral.uuid] = peripheral;
+
+        return true;
+    };
+
+    this.updatePropertiesForDescriptors = function(peripheral, service, characteristic, descriptor, properties) {
+        descriptor.properties = properties;
+        characteristic.descriptors[descriptor.uuid] = descriptor;
+        mService.characteristics[characteristic.uuid] = characteristic;
+        peripheral.services[mService.uuid] = service;
+        this.peripherals[peripheral.uuid] = peripheral;
+
+        return true;
+    };
+
+    /* The following define the flags that are valid with the SecurityProperties */
+    this.GATM_SECURITY_PROPERTIES_NO_SECURITY = 0x00000000
+    this.GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_WRITE = 0x00000001
+    this.GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_WRITE = 0x00000002
+    this.GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_ENCRYPTION_READ = 0x00000004
+    this.GATM_SECURITY_PROPERTIES_AUTHENTICATED_ENCRYPTION_READ = 0x00000008
+    this.GATM_SECURITY_PROPERTIES_UNAUTHENTICATED_SIGNED_WRITES = 0x00000010
+    this.GATM_SECURITY_PROPERTIES_AUTHENTICATED_SIGNED_WRITES = 0x00000020
+
+    /* The following define the flags that are valid with the CharacteristicProperties */
+    this.GATM_CHARACTERISTIC_PROPERTIES_BROADCAST = 0x00000001
+    this.GATM_CHARACTERISTIC_PROPERTIES_READ = 0x00000002
+    this.GATM_CHARACTERISTIC_PROPERTIES_WRITE_WO_RESP = 0x00000004
+    this.GATM_CHARACTERISTIC_PROPERTIES_WRITE = 0x00000008
+    this.GATM_CHARACTERISTIC_PROPERTIES_NOTIFY = 0x00000010
+    this.GATM_CHARACTERISTIC_PROPERTIES_INDICATE = 0x00000020
+    this.GATM_CHARACTERISTIC_PROPERTIES_AUTHENTICATED_SIGNED_WRITES = 0x00000040
+    this.GATM_CHARACTERISTIC_PROPERTIES_EXT_PROPERTIES = 0x00000080
+
+    /* The following define the flags that are valid with the DescriptorProperties */
+    this.GATM_DESCRIPTOR_PROPERTIES_READ = 0x00000001
+    this.GATM_DESCRIPTOR_PROPERTIES_WRITE = 0x00000002
+
 }
 
 if (typeof exports === "undefined") {
     exports = {};
 }
 
-exports.GATTIP = GATTIP;
+exports.GATTIPSERVER = GATTIPSERVER;
+
 function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
     var path = "lib/gatt-ip-js/"; // Replace the path to json configuration file.
     var _gattip = gattip;
