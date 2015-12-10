@@ -28,7 +28,6 @@ function GATTIP() {
     }
     
     this.processMessage = function (mesg) {
-        console.log('processMessage'+mesg);
         var response = JSON.parse(mesg.data);
         var peripheral, service, characteristic;
         
@@ -298,7 +297,6 @@ function GATTIP() {
     };
     
     this.write = function (method, params, id) {
-        console.log('method'+method);
         var mesg = {};
         mesg.jsonrpc = "2.0";
         mesg.method = method;

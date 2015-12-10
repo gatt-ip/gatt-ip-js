@@ -50,7 +50,6 @@ function GATTIPSERVER() {
     this.processMessage = function (mesg) {
         var message = JSON.parse(mesg.data);
         var params, peripheral, service, characteristic;
-        console.log(message);
 
         if ( (typeof message === 'undefined') || (!message) ){
             params = {};
@@ -322,7 +321,6 @@ function GATTIPSERVER() {
             this.onerror("not connected");
             return;
         }
-        console.log(mesg);
         server.send(mesg);
     };
 
