@@ -1,4 +1,4 @@
 gatt-ip-js
 ==========
 
-Javascript library for GATT-IP
+GATT-IP library is A simple javascript protocol to connect any Bluetooth Smart (GATT) Device to the IP network
