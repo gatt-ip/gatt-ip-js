@@ -1086,7 +1086,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
     } else
         this.descriptorName = uuid;
 
-    this.updateValues = function(value) {
+    this.updateValue = function(value) {
         this.value = value;
         return this;
     };
