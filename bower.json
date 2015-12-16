@@ -22,12 +22,12 @@
     "node_modules",
     "bower_components",    
     "package.json",
-    "characteristic.js"
-    "constants.js"
-    "discriptor.js"
-    "gatt-ip-server.js"
-    "gatt-ip.js"
-    "peripheral.js"
+    "characteristic.js",
+    "constants.js",
+    "discriptor.js",
+    "gatt-ip-server.js",
+    "gatt-ip.js",
+    "peripheral.js",
     "service.js"
   ]
 }
