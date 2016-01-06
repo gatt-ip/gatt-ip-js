@@ -11,7 +11,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
     this.uuid = uuid;
     this.descriptors = {};
     this.properties = {};
-    this.value = {};
+    this.value = '';
     this.isNotifying = false;
     
     if (uuid.length === 4) {
@@ -152,13 +152,52 @@ function Characteristic(gattip, peripheral, service, uuid) {
     };
 
     this.writeRequest = function(params, error) {
-        this.value = params[C.kValue];
-        _gattip.writeRequest(_peripheral, _service, this, this.value, error);
+        _gattip.writeRequest(_peripheral, _service, this, params[C.kValue], error);
     };
 
     this.notifyRequest = function(params, error) {
-        this.isNotifying = params[C.kValue];
-        _gattip.respondNotify(_peripheral, _service, this, this.isNotifying, error);
+        _gattip.notifyRequest(_peripheral, _service, this, params[C.kValue], error);
+    };
+
+    this.respondToReadRequest = function(peripheral, service, characteristic, error){
+
+        if(error){
+            this.errorRequest(C.kGetCharacteristicValue);
+        }else{
+            params = {};
+            params[C.kPeripheralUUID] = peripheral.uuid;
+            params[C.kServiceUUID] = service.uuid;
+            params[C.kCharacteristicUUID] = characteristic.uuid;        
+            params[C.kValue] = characteristic.value;
+
+            _gattip.write(C.kGetCharacteristicValue, params);
+        }
+    };
+
+    this.respondToWriteRequest = function(peripheral, service, characteristic, value, error){
+
+        if(error){
+            this.errorRequest(C.kWriteCharacteristicValue);
+        }else{
+            params = {};
+            params[C.kPeripheralUUID] = peripheral.uuid;
+            params[C.kServiceUUID] = service.uuid;
+            params[C.kCharacteristicUUID] = characteristic.uuid;        
+            params[C.kValue] = value;
+
+            _gattip.write(C.kWriteCharacteristicValue, params);
+        }
+    };
+
+    this.respondNotify = function(peripheral, service, characteristic, isNotifying, error){
+        params = {};
+        params[C.kPeripheralUUID] = peripheral.uuid;
+        params[C.kServiceUUID] = service.uuid;
+        params[C.kCharacteristicUUID] = characteristic.uuid;
+        params[C.kIsNotifying] = isNotifying;
+        params[C.kValue] = isNotifying;
+
+        _gattip.write(C.kSetValueNotification, params);
     };
 
     this.addDescriptor = function(descriptorUUID) {

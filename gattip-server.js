@@ -118,7 +118,7 @@ function GATTIPSERVER() {
                             console.log("unknown peripheral");
                             this.invalidParameters(message.method, C.kError32001);
                         } else {
-                            peripheral.discoverServicesRequest(message.params, message.error);
+                            this.discoverServicesRequest(peripheral, message.error);
                         }
                     } else {
                         this.invalidParameters(message.method, C.kInvalidRequest);
@@ -139,7 +139,7 @@ function GATTIPSERVER() {
                     } else {
                         service = peripheral.services[message.params[C.kServiceUUID]];
                         if(service){
-                            service.discoverCharacteristicsRequest(message.params, message.error);
+                            this.discoverCharacteristicsRequest(peripheral, service, message.error);
                         } else {
                             console.log("unknown service");
                             this.invalidParameters(message.method, C.kError32002);
@@ -336,55 +336,14 @@ function GATTIPSERVER() {
         }
     };
 
-    this.respondToReadRequest = function(peripheral, service, characteristic, error){
-
-        if(error){
-            this.errorRequest(C.kGetCharacteristicValue);
-        }else{
-            params = {};
-            params[C.kPeripheralUUID] = peripheral.uuid;
-            params[C.kServiceUUID] = service.uuid;
-            params[C.kCharacteristicUUID] = characteristic.uuid;        
-            params[C.kValue] = characteristic.value;
-
-            this.write(C.kGetCharacteristicValue, params);
-        }
-    };
-
-    this.respondToWriteRequest = function(peripheral, service, characteristic, value, error){
-
-        if(error){
-            this.errorRequest(C.kWriteCharacteristicValue);
-        }else{
-            params = {};
-            params[C.kPeripheralUUID] = peripheral.uuid;
-            params[C.kServiceUUID] = service.uuid;
-            params[C.kCharacteristicUUID] = characteristic.uuid;        
-            params[C.kValue] = value;
-
-            this.write(C.kWriteCharacteristicValue, params);
-        }
-    };
-
-    this.respondNotify = function(peripheral, service, characteristic, isNotifying, error){
-        params = {};
-        params[C.kPeripheralUUID] = peripheral.uuid;
-        params[C.kServiceUUID] = service.uuid;
-        params[C.kCharacteristicUUID] = characteristic.uuid;
-        params[C.kIsNotifying] = isNotifying;
-        params[C.kValue] = isNotifying;
-
-        this.write(C.kSetValueNotification, params);
-    };
-
     this.addPeripheral = function(name, uuid, addata, scanData, rssi, addr) {
         var peripheral;
 
         if(typeof process === 'object' && process + '' === '[object process]'){
             var p = require("./peripheral.js"); 
-            peripheral = new p.Peripheral(name, uuid, addata, scanData, rssi, addr);
+            peripheral = new p.Peripheral(this, name, uuid, addata, scanData, rssi, addr);
         }else{
-            peripheral = new Peripheral(name, uuid, addata, scanData, rssi, addr);
+            peripheral = new Peripheral(this, name, uuid, addata, scanData, rssi, addr);
         }
         this.peripherals[peripheral.uuid] = peripheral;
 

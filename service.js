@@ -66,14 +66,14 @@ function Service(gattip, peripheral, uuid) {
         }
     };
 
-    this.discoverCharacteristicsRequest = function(params, error) {
+    this.discoverCharacteristicsResponse = function() {
         params = {};
         var charsArray = [];
 
         for (var uuid in this.characteristics) {
             var obj = {};
             obj[C.kCharacteristicUUID] = this.characteristics[uuid].uuid;
-            obj[C.kProperties] = (this.characteristics[uuid].properties) ? this.characteristics[uuid].properties.toString() : '';
+            obj[C.kProperties] = (this.characteristics[uuid].properties) ? this.characteristics[uuid].properties : '';
             obj[C.kValue] = this.characteristics[uuid].value;
             obj[C.kIsNotifying] = this.characteristics[uuid].isNotifying;
             charsArray.push(obj);

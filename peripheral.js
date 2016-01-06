@@ -12,7 +12,7 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
     this.advertisementData = addata;
     this.scanData = scanData;
     this.serviceUUIDs = {};
-    this.rawAdvertisingData = addata[C.kRawAdvertisementData];
+    if(addata)this.rawAdvertisingData = addata[C.kRawAdvertisementData];
     this.manufacturerData = '';
     this.rssi = rssi;
     this.addr = addr;
@@ -134,7 +134,6 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
                     service = new Service(_gattip, this, serviceUUID);
                 }
 
-                // service = new Service(_gattip, this, serviceUUID);
                 this.services[serviceUUID] = service;
             }
         }
@@ -154,7 +153,7 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
         console.log("kGetRSSI event"); //TODO
     };
 
-    this.discoverServicesRequest = function(params, error) {
+    this.discoverServicesResponse = function(){
         params = {};
         var servicesArray = [];
 
@@ -339,4 +338,3 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
 if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== "undefined")) {
     exports.Peripheral = Peripheral;
 }
-
