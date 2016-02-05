@@ -9,7 +9,8 @@ function GattIpServer() {
     var server;
     this.state = C.kUnknown;
     this.peripherals = {};
-
+    this.peripheral_db = {};
+    
     this.init = function (url, callback) {
         if (callback) this.oninit = callback;
 
@@ -338,6 +339,7 @@ function GattIpServer() {
     };
 
     this.connectResponse = function (peripheral, error) {
+        this.peripheral_db = {};
         this.peripheral_db[C.kPeripheralUUID] = peripheral.uuid;
         this.peripheral_db[C.kPeripheralName] = peripheral.name;
 
@@ -914,7 +916,7 @@ function Service(gattip, peripheral, uuid) {
 
     this.discoverCharacteristicsRequest = function () {
         if(_gattip.discoverCharacteristicsRequest){
-            _gattip.discoverDescriptorsRequest(_peripheral, _service, this);
+            _gattip.discoverCharacteristicsRequest(_peripheral, this);
         }else{
             throw Error('discoverCharacteristicsRequest method not implemented by server');
         }

@@ -9,7 +9,8 @@ function GattIpServer() {
     var server;
     this.state = C.kUnknown;
     this.peripherals = {};
-
+    this.peripheral_db = {};
+    
     this.init = function (url, callback) {
         if (callback) this.oninit = callback;
 
@@ -338,6 +339,7 @@ function GattIpServer() {
     };
 
     this.connectResponse = function (peripheral, error) {
+        this.peripheral_db = {};
         this.peripheral_db[C.kPeripheralUUID] = peripheral.uuid;
         this.peripheral_db[C.kPeripheralName] = peripheral.name;
 

@@ -78,7 +78,7 @@ function Service(gattip, peripheral, uuid) {
 
     this.discoverCharacteristicsRequest = function () {
         if(_gattip.discoverCharacteristicsRequest){
-            _gattip.discoverDescriptorsRequest(_peripheral, _service, this);
+            _gattip.discoverCharacteristicsRequest(_peripheral, this);
         }else{
             throw Error('discoverCharacteristicsRequest method not implemented by server');
         }
