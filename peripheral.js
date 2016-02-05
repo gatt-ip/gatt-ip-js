@@ -1,9 +1,9 @@
-function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
+function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
     var path = "lib/gatt-ip-js/browser/"; // Replace the path to json configuration file.
 
     if (typeof process === 'object' && process + '' === '[object process]') {
-        var consts = require("./constants.js");
-        C = consts.C;
+        C = require("./constants.js").C;
+        Service = require("./service.js").Service;
     }
 
     var _gattip = gattip;
@@ -12,7 +12,7 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
     this.advertisementData = addata;
     this.scanData = scanData;
     this.serviceUUIDs = {};
-    if(addata)this.rawAdvertisingData = addata[C.kRawAdvertisementData];
+    if (addata)this.rawAdvertisingData = addata[C.kRawAdvertisementData];
     this.manufacturerData = '';
     this.rssi = rssi;
     this.addr = addr;
@@ -25,11 +25,31 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
 
     var self = this;
 
+    $.getJSON(path + "bleServices.json", function(res) {
+        self.serviceNames = res;
+    });
+
+    $.getJSON(path + "bleCharacteristics.json", function (res) {
+        self.characteristicNames = res;
+    });
+
+    $.getJSON(path + "bleDescriptors.json", function (res) {
+        self.descriptorNames = res;
+    });
+
     var flag = true;
+
+    Object.size = function (obj) {
+        var size = 0, key;
+        for (key in obj) {
+            if (obj.hasOwnProperty(key)) size++;
+        }
+        return size;
+    };
 
     //parse advertising data
     this.advdata = new Array();
-    if(this.rawAdvertisingData){
+    if (this.rawAdvertisingData) {
         if (this.rawAdvertisingData.length % 2 === 0) {
             for (var i = 0; i < this.rawAdvertisingData.length; i = i + 2) {
                 this.advdata[i / 2] = this.rawAdvertisingData.charAt(i) + this.rawAdvertisingData.charAt(i + 1);
@@ -66,7 +86,7 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
             flag = false;
     } while (flag);
 
-    this.connect = function(callback) {
+    this.connect = function (callback) {
         if (callback) this.onconnect = callback;
 
         var params = {};
@@ -74,7 +94,7 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
         _gattip.write(C.kConnect, params);
     };
 
-    this.onconnect = function(error) {
+    this.onconnect = function (error) {
         /*if (typeof $ === 'undefined') {
             $ = {
                 getJSON : function (path, callback) {
@@ -85,21 +105,13 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
                 }
             }
         }*/
-        $.getJSON(path + "bleServices.json", function(res) {
-            self.serviceNames = res;
-        });
-        $.getJSON(path + "bleCharacteristics.json", function(res) {
-            self.characteristicNames = res;
-        });
-        $.getJSON(path + "bleDescriptors.json", function(res) {
-            self.descriptorNames = res;
-        });
+
         if (!error) {
             this.isConnected = true;
         }
     };
 
-    this.disconnect = function(callback) {
+    this.disconnect = function (callback) {
         if (callback) this.onconnect = callback;
 
         var params = {};
@@ -107,40 +119,37 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
         _gattip.write(C.kDisconnect, params);
     };
 
-    this.ondisconnect = function(deviceName, error) {
+    this.ondisconnect = function (deviceName, error) {
         if (!error) {
             console.log(deviceName + ' disconnected');
             this.isConnected = false;
         }
     };
 
-    this.discoverServices = function(callback) {
+    this.discoverServices = function (callback) {
         if (callback) this.ondiscoverServices = callback;
 
-        var params = {};
-        params[C.kPeripheralUUID] = this.uuid;
-        _gattip.write(C.kGetServices, params);
+        if (this.services && Object.size(this.services) > 0) {
+            _gattip.ondiscoverServices(this);
+        } else {
+            var params = {};
+            params[C.kPeripheralUUID] = this.uuid;
+            _gattip.write(C.kGetServices, params);
+        }
     };
 
-    this.ondiscoverServices = function(params) {
+    this.ondiscoverServices = function (params) {
         for (var index in params[C.kServices]) {
             var serviceUUID = params[C.kServices][index][C.kServiceUUID];
             var service = this.services[serviceUUID];
             if (!service) {
-                if (typeof process === 'object' && process + '' === '[object process]') {
-                    var s = require("./service.js");
-                    service = new s.Service(_gattip, this, serviceUUID);
-                } else {
-                    service = new Service(_gattip, this, serviceUUID);
-                }
-
-                this.services[serviceUUID] = service;
+                service = new Service(_gattip, this, serviceUUID);
             }
+            this.services[serviceUUID] = service;
         }
-
     };
 
-    this.updateRSSI = function(callback) {
+    this.updateRSSI = function (callback) {
         if (callback) this.onupdateRSSI = callback;
 
         var params = {};
@@ -149,34 +158,39 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
         _gattip.write(C.kGetRSSI, params);
     };
 
-    this.onupdateRSSI = function(params) {
+    this.onupdateRSSI = function (params) {
         console.log("kGetRSSI event"); //TODO
     };
 
-    this.discoverServicesResponse = function(){
-        params = {};
-        var servicesArray = [];
-
-        for (var uuid in this.services) {
-            var obj = {};
-            obj[C.kServiceUUID] = this.services[uuid].uuid;
-            obj[C.kIsPrimaryKey] = this.services[uuid].isPrimary;
-            servicesArray.push(obj);
+    this.discoverServicesRequest = function () {
+        if(_gattip.discoverServicesRequest){
+            _gattip.discoverServicesRequest(this);
+        }else{
+            throw Error('discoverServicesRequest method not implemented by server');
         }
-        params[C.kServices] = servicesArray;
-        params[C.kPeripheralUUID] = this.uuid;
-        _gattip.write(C.kGetServices, params);
     };
 
-    this.addService = function(serviceUUID) {
-        var service;
+    this.discoverServicesResponse = function (error) {
+        if(!error){
+            params = {};
+            var servicesArray = [];
 
-        if (typeof process === 'object' && process + '' === '[object process]') {
-            var s = require("./service.js");
-            service = new s.Service(_gattip, this, serviceUUID);
-        } else {
-            service = new Service(_gattip, this, serviceUUID);
+            for (var uuid in this.services) {
+                var obj = {};
+                obj[C.kServiceUUID] = this.services[uuid].uuid;
+                obj[C.kIsPrimaryKey] = this.services[uuid].isPrimary;
+                servicesArray.push(obj);
+            }
+            params[C.kServices] = servicesArray;
+            params[C.kPeripheralUUID] = this.uuid;
+            _gattip.write(C.kGetServices, params);
+        }else{
+            _gattip.write(C.kGetServices, kError32603, error);
         }
+    };
+
+    this.addService = function (serviceUUID) {
+        var service = new Service(_gattip, this, serviceUUID);
         this.services[service.uuid] = service;
 
         return service;
@@ -332,7 +346,7 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
             peripheral.timePeriod += ' secs';
         }
     }
-    
+
 }
 
 if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== "undefined")) {

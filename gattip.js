@@ -1,24 +1,19 @@
 function GATTIP() {
 
     if (typeof process === 'object' && process + '' === '[object process]') {
-        var consts = require("./constants.js");
-        C = consts.C;
+        C = require("./constants.js").C;
+        Peripheral = require("./peripheral.js").Peripheral;
+        WebSocket = require('websocket').w3cwebsocket;
     }
 
     var client;
-    this.state = C.kUnknown;
     this.peripherals = {};
 
     this.init = function(url, callback) {
+
         if (callback) this.oninit = callback;
 
-        if (typeof WebSocket !== "undefined")
-            var socket = new WebSocket(url);
-
-        if (!socket && (typeof process === 'object' && process + '' === '[object process]')) {
-            WebSocket = require("ws");
-            socket = new WebSocket(url);
-        }
+        var socket = new WebSocket(url);
 
         socket.onopen = function() {
             this.initWithClient(socket);
@@ -29,6 +24,7 @@ function GATTIP() {
     };
 
     this.initWithClient = function(_client) {
+        this.state = C.kUnknown;
         client = _client;
         client.onmessage = this.processMessage.bind(this);
     }
@@ -45,24 +41,13 @@ function GATTIP() {
                 if (response.params && response.params[C.kPeripheralUUID])
                     peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
                 if (!response.error) {
-                    if(typeof process === 'object' && process + '' === '[object process]'){
-                        var p = require("./peripheral.js"); 
-                        peripheral = new p.Peripheral(this,
-                            response.params[C.kPeripheralName],
-                            response.params[C.kPeripheralUUID],
-                            response.params[C.kAdvertisementDataKey],
-                            response.params[C.kScanRecord],
-                            response.params[C.kRSSIkey],
-                            response.params[C.kPeripheralBtAddress]);
-                    }else{
-                        peripheral = new Peripheral(this,
-                            response.params[C.kPeripheralName],
-                            response.params[C.kPeripheralUUID],
-                            response.params[C.kAdvertisementDataKey],
-                            response.params[C.kScanRecord],
-                            response.params[C.kRSSIkey],
-                            response.params[C.kPeripheralBtAddress]);
-                    }
+                    peripheral = new Peripheral(this,
+                        response.params[C.kPeripheralName],
+                        response.params[C.kPeripheralUUID],
+                        response.params[C.kPeripheralBtAddress],
+                        response.params[C.kRSSIkey],
+                        response.params[C.kAdvertisementDataKey],
+                        response.params[C.kScanRecord]);
 
                     this.peripherals[response.params[C.kPeripheralUUID]] = peripheral;
                 }
@@ -78,8 +63,21 @@ function GATTIP() {
                     if (!peripheral) {
                         console.log("unknown peripheral");
                     } else {
-                        peripheral.onconnect(response.error);
+                        peripheral.ondiscoverServices(response.params, response.error);
+                            for(var suuid in response.params[C.kServices]){
+                                service = peripheral.services[response.params[C.kServices][suuid][C.kServiceUUID]];
+                                service.ondiscoverCharacteristics(response.params[C.kServices][suuid], response.error);
+                                var characteristics = response.params[C.kServices][service.uuid][C.kCharacteristics];
+
+                                for(var cuuid in service.characteristics){
+                                    characteristic = service.characteristics[cuuid];
+                                    characteristic.ondiscoverDescriptors(response.params[C.kServices][service.uuid][C.kCharacteristics][cuuid], response.error);
+                                }
+                        }
+                        peripheral.onconnect();
                     }
+                }else{
+                    peripheral.onconnect(response.error);
                 }
                 this.onconnect(peripheral, response.error);
                 break;
@@ -229,6 +227,8 @@ function GATTIP() {
                 break;
             default:
                 console.log('invalid response');
+
+            this.message = response;
         }
     };
 

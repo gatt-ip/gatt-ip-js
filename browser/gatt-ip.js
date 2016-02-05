@@ -1,24 +1,19 @@
 function GATTIP() {
 
     if (typeof process === 'object' && process + '' === '[object process]') {
-        var consts = require("./constants.js");
-        C = consts.C;
+        C = require("./constants.js").C;
+        Peripheral = require("./peripheral.js").Peripheral;
+        WebSocket = require('websocket').w3cwebsocket;
     }
 
     var client;
-    this.state = C.kUnknown;
     this.peripherals = {};
 
     this.init = function(url, callback) {
+
         if (callback) this.oninit = callback;
 
-        if (typeof WebSocket !== "undefined")
-            var socket = new WebSocket(url);
-
-        if (!socket && (typeof process === 'object' && process + '' === '[object process]')) {
-            WebSocket = require("ws");
-            socket = new WebSocket(url);
-        }
+        var socket = new WebSocket(url);
 
         socket.onopen = function() {
             this.initWithClient(socket);
@@ -29,6 +24,7 @@ function GATTIP() {
     };
 
     this.initWithClient = function(_client) {
+        this.state = C.kUnknown;
         client = _client;
         client.onmessage = this.processMessage.bind(this);
     }
@@ -45,24 +41,13 @@ function GATTIP() {
                 if (response.params && response.params[C.kPeripheralUUID])
                     peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
                 if (!response.error) {
-                    if(typeof process === 'object' && process + '' === '[object process]'){
-                        var p = require("./peripheral.js"); 
-                        peripheral = new p.Peripheral(this,
-                            response.params[C.kPeripheralName],
-                            response.params[C.kPeripheralUUID],
-                            response.params[C.kAdvertisementDataKey],
-                            response.params[C.kScanRecord],
-                            response.params[C.kRSSIkey],
-                            response.params[C.kPeripheralBtAddress]);
-                    }else{
-                        peripheral = new Peripheral(this,
-                            response.params[C.kPeripheralName],
-                            response.params[C.kPeripheralUUID],
-                            response.params[C.kAdvertisementDataKey],
-                            response.params[C.kScanRecord],
-                            response.params[C.kRSSIkey],
-                            response.params[C.kPeripheralBtAddress]);
-                    }
+                    peripheral = new Peripheral(this,
+                        response.params[C.kPeripheralName],
+                        response.params[C.kPeripheralUUID],
+                        response.params[C.kPeripheralBtAddress],
+                        response.params[C.kRSSIkey],
+                        response.params[C.kAdvertisementDataKey],
+                        response.params[C.kScanRecord]);
 
                     this.peripherals[response.params[C.kPeripheralUUID]] = peripheral;
                 }
@@ -78,8 +63,21 @@ function GATTIP() {
                     if (!peripheral) {
                         console.log("unknown peripheral");
                     } else {
-                        peripheral.onconnect(response.error);
+                        peripheral.ondiscoverServices(response.params, response.error);
+                            for(var suuid in response.params[C.kServices]){
+                                service = peripheral.services[response.params[C.kServices][suuid][C.kServiceUUID]];
+                                service.ondiscoverCharacteristics(response.params[C.kServices][suuid], response.error);
+                                var characteristics = response.params[C.kServices][service.uuid][C.kCharacteristics];
+
+                                for(var cuuid in service.characteristics){
+                                    characteristic = service.characteristics[cuuid];
+                                    characteristic.ondiscoverDescriptors(response.params[C.kServices][service.uuid][C.kCharacteristics][cuuid], response.error);
+                                }
+                        }
+                        peripheral.onconnect();
                     }
+                }else{
+                    peripheral.onconnect(response.error);
                 }
                 this.onconnect(peripheral, response.error);
                 break;
@@ -229,6 +227,8 @@ function GATTIP() {
                 break;
             default:
                 console.log('invalid response');
+
+            this.message = response;
         }
     };
 
@@ -309,12 +309,13 @@ function GATTIP() {
 if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== "undefined")) {
     exports.GATTIP = GATTIP;
 }
-function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
+
+function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
     var path = "lib/gatt-ip-js/browser/"; // Replace the path to json configuration file.
 
     if (typeof process === 'object' && process + '' === '[object process]') {
-        var consts = require("./constants.js");
-        C = consts.C;
+        C = require("./constants.js").C;
+        Service = require("./service.js").Service;
     }
 
     var _gattip = gattip;
@@ -323,7 +324,7 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
     this.advertisementData = addata;
     this.scanData = scanData;
     this.serviceUUIDs = {};
-    if(addata)this.rawAdvertisingData = addata[C.kRawAdvertisementData];
+    if (addata)this.rawAdvertisingData = addata[C.kRawAdvertisementData];
     this.manufacturerData = '';
     this.rssi = rssi;
     this.addr = addr;
@@ -336,11 +337,31 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
 
     var self = this;
 
+    $.getJSON(path + "bleServices.json", function(res) {
+        self.serviceNames = res;
+    });
+
+    $.getJSON(path + "bleCharacteristics.json", function (res) {
+        self.characteristicNames = res;
+    });
+
+    $.getJSON(path + "bleDescriptors.json", function (res) {
+        self.descriptorNames = res;
+    });
+
     var flag = true;
+
+    Object.size = function (obj) {
+        var size = 0, key;
+        for (key in obj) {
+            if (obj.hasOwnProperty(key)) size++;
+        }
+        return size;
+    };
 
     //parse advertising data
     this.advdata = new Array();
-    if(this.rawAdvertisingData){
+    if (this.rawAdvertisingData) {
         if (this.rawAdvertisingData.length % 2 === 0) {
             for (var i = 0; i < this.rawAdvertisingData.length; i = i + 2) {
                 this.advdata[i / 2] = this.rawAdvertisingData.charAt(i) + this.rawAdvertisingData.charAt(i + 1);
@@ -377,7 +398,7 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
             flag = false;
     } while (flag);
 
-    this.connect = function(callback) {
+    this.connect = function (callback) {
         if (callback) this.onconnect = callback;
 
         var params = {};
@@ -385,7 +406,7 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
         _gattip.write(C.kConnect, params);
     };
 
-    this.onconnect = function(error) {
+    this.onconnect = function (error) {
         /*if (typeof $ === 'undefined') {
             $ = {
                 getJSON : function (path, callback) {
@@ -396,21 +417,13 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
                 }
             }
         }*/
-        $.getJSON(path + "bleServices.json", function(res) {
-            self.serviceNames = res;
-        });
-        $.getJSON(path + "bleCharacteristics.json", function(res) {
-            self.characteristicNames = res;
-        });
-        $.getJSON(path + "bleDescriptors.json", function(res) {
-            self.descriptorNames = res;
-        });
+
         if (!error) {
             this.isConnected = true;
         }
     };
 
-    this.disconnect = function(callback) {
+    this.disconnect = function (callback) {
         if (callback) this.onconnect = callback;
 
         var params = {};
@@ -418,40 +431,37 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
         _gattip.write(C.kDisconnect, params);
     };
 
-    this.ondisconnect = function(deviceName, error) {
+    this.ondisconnect = function (deviceName, error) {
         if (!error) {
             console.log(deviceName + ' disconnected');
             this.isConnected = false;
         }
     };
 
-    this.discoverServices = function(callback) {
+    this.discoverServices = function (callback) {
         if (callback) this.ondiscoverServices = callback;
 
-        var params = {};
-        params[C.kPeripheralUUID] = this.uuid;
-        _gattip.write(C.kGetServices, params);
+        if (this.services && Object.size(this.services) > 0) {
+            _gattip.ondiscoverServices(this);
+        } else {
+            var params = {};
+            params[C.kPeripheralUUID] = this.uuid;
+            _gattip.write(C.kGetServices, params);
+        }
     };
 
-    this.ondiscoverServices = function(params) {
+    this.ondiscoverServices = function (params) {
         for (var index in params[C.kServices]) {
             var serviceUUID = params[C.kServices][index][C.kServiceUUID];
             var service = this.services[serviceUUID];
             if (!service) {
-                if (typeof process === 'object' && process + '' === '[object process]') {
-                    var s = require("./service.js");
-                    service = new s.Service(_gattip, this, serviceUUID);
-                } else {
-                    service = new Service(_gattip, this, serviceUUID);
-                }
-
-                this.services[serviceUUID] = service;
+                service = new Service(_gattip, this, serviceUUID);
             }
+            this.services[serviceUUID] = service;
         }
-
     };
 
-    this.updateRSSI = function(callback) {
+    this.updateRSSI = function (callback) {
         if (callback) this.onupdateRSSI = callback;
 
         var params = {};
@@ -460,34 +470,39 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
         _gattip.write(C.kGetRSSI, params);
     };
 
-    this.onupdateRSSI = function(params) {
+    this.onupdateRSSI = function (params) {
         console.log("kGetRSSI event"); //TODO
     };
 
-    this.discoverServicesResponse = function(){
-        params = {};
-        var servicesArray = [];
-
-        for (var uuid in this.services) {
-            var obj = {};
-            obj[C.kServiceUUID] = this.services[uuid].uuid;
-            obj[C.kIsPrimaryKey] = this.services[uuid].isPrimary;
-            servicesArray.push(obj);
+    this.discoverServicesRequest = function () {
+        if(_gattip.discoverServicesRequest){
+            _gattip.discoverServicesRequest(this);
+        }else{
+            throw Error('discoverServicesRequest method not implemented by server');
         }
-        params[C.kServices] = servicesArray;
-        params[C.kPeripheralUUID] = this.uuid;
-        _gattip.write(C.kGetServices, params);
     };
 
-    this.addService = function(serviceUUID) {
-        var service;
+    this.discoverServicesResponse = function (error) {
+        if(!error){
+            params = {};
+            var servicesArray = [];
 
-        if (typeof process === 'object' && process + '' === '[object process]') {
-            var s = require("./service.js");
-            service = new s.Service(_gattip, this, serviceUUID);
-        } else {
-            service = new Service(_gattip, this, serviceUUID);
+            for (var uuid in this.services) {
+                var obj = {};
+                obj[C.kServiceUUID] = this.services[uuid].uuid;
+                obj[C.kIsPrimaryKey] = this.services[uuid].isPrimary;
+                servicesArray.push(obj);
+            }
+            params[C.kServices] = servicesArray;
+            params[C.kPeripheralUUID] = this.uuid;
+            _gattip.write(C.kGetServices, params);
+        }else{
+            _gattip.write(C.kGetServices, kError32603, error);
         }
+    };
+
+    this.addService = function (serviceUUID) {
+        var service = new Service(_gattip, this, serviceUUID);
         this.services[service.uuid] = service;
 
         return service;
@@ -643,7 +658,7 @@ function Peripheral(gattip, name, uuid, addata, scanData, rssi, addr) {
             peripheral.timePeriod += ' secs';
         }
     }
-    
+
 }
 
 if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== "undefined")) {
@@ -653,8 +668,8 @@ if ((typeof process === 'object' && process + '' === '[object process]') && (typ
 function Service(gattip, peripheral, uuid) {
 
     if (typeof process === 'object' && process + '' === '[object process]') {
-        var consts = require("./constants.js");
-        C = consts.C;
+        C = require("./constants.js").C;
+        Characteristic = require("./characteristic.js").Characteristic;
     }
 
     var _gattip = gattip;
@@ -663,47 +678,57 @@ function Service(gattip, peripheral, uuid) {
     this.uuid = uuid;
     this.isPrimary = true; //TODO: read from remote
     this.characteristics = {};
-    this.includedServices = {}; 
-       
-    if (uuid.length === 4) {
-        if (peripheral.serviceNames) {
-            var uuidObj = peripheral.serviceNames[uuid];
-            if (uuidObj !== undefined && uuidObj !== null) {
-                this.serviceName = uuidObj.name;
-            } else
-                this.serviceName = uuid;
-        } else
-            this.serviceName = uuid;
-    } else
-        this.serviceName = uuid;
+    this.includedServices = {};
 
-
-    this.discoverIncludedServices = function(callback) {};
-
-    this.ondiscoverIncludedServices = function(error) {};
-
-    this.discoverCharacteristics = function(callback) {
-        if (callback) this.ondiscoverCharacteristics = callback;
-
-        var params = {};
-        params[C.kPeripheralUUID] = _peripheral.uuid;
-        params[C.kServiceUUID] = this.uuid;
-        _gattip.write(C.kGetCharacteristics, params);
+    Object.size = function (obj) {
+        var size = 0, key;
+        for (key in obj) {
+            if (obj.hasOwnProperty(key)) size++;
+        }
+        return size;
     };
 
-    this.ondiscoverCharacteristics = function(params) {
+    if (peripheral.serviceNames && peripheral.serviceNames[uuid]) {
+        var uuidObj = peripheral.serviceNames[uuid];
+        if (uuidObj !== undefined && uuidObj !== null) {
+            this.serviceName = uuidObj.name;
+        } else{
+            this.serviceName = uuid;
+        }
+    } else{
+        this.serviceName = uuid;
+    }
+
+
+    this.discoverIncludedServices = function (callback) {
+    };
+
+    this.ondiscoverIncludedServices = function (error) {
+    };
+
+    this.discoverCharacteristics = function (callback) {
+        if (callback) this.ondiscoverCharacteristics = callback;
+
+        if (this.characteristics && Object.size(this.characteristics) > 0) {
+            _gattip.ondiscoverCharacteristics(_peripheral, this);
+        } else {
+            var params = {};
+            params[C.kPeripheralUUID] = _peripheral.uuid;
+            params[C.kServiceUUID] = this.uuid;
+
+            _gattip.write(C.kGetCharacteristics, params);
+        }
+    };
+
+    this.ondiscoverCharacteristics = function (params) {
         for (var index in params[C.kCharacteristics]) {
             var characteristicUUID = params[C.kCharacteristics][index][C.kCharacteristicUUID];
             var characteristic = this.characteristics[characteristicUUID];
             if (!characteristic) {
-                if(typeof process === 'object' && process+'' === '[object process]') {
-                    var c = require("./characteristic.js");
-                    characteristic = new c.Characteristic(_gattip, _peripheral, this, characteristicUUID);
-                } else {
-                    characteristic = new Characteristic(_gattip, _peripheral, this, characteristicUUID);
-                }
-                this.characteristics[characteristicUUID] = characteristic;
+                characteristic = new Characteristic(_gattip, _peripheral, this, characteristicUUID);
             }
+            this.characteristics[characteristicUUID] = characteristic;
+
             characteristic.value = params[C.kCharacteristics][index][C.kValue];
 
             var props = params[C.kCharacteristics][index][C.kProperties];
@@ -718,36 +743,41 @@ function Service(gattip, peripheral, uuid) {
         }
     };
 
-    this.discoverCharacteristicsResponse = function() {
-        params = {};
-        var charsArray = [];
-
-        for (var uuid in this.characteristics) {
-            var obj = {};
-            obj[C.kCharacteristicUUID] = this.characteristics[uuid].uuid;
-            obj[C.kProperties] = (this.characteristics[uuid].properties) ? this.characteristics[uuid].properties : '';
-            obj[C.kValue] = this.characteristics[uuid].value;
-            obj[C.kIsNotifying] = this.characteristics[uuid].isNotifying;
-            charsArray.push(obj);
+    this.discoverCharacteristicsRequest = function () {
+        if(_gattip.discoverCharacteristicsRequest){
+            _gattip.discoverDescriptorsRequest(_peripheral, _service, this);
+        }else{
+            throw Error('discoverCharacteristicsRequest method not implemented by server');
         }
-        params[C.kCharacteristics] = charsArray;
-        params[C.kPeripheralUUID] = _peripheral.uuid;
-        params[C.kServiceUUID] = this.uuid;
-
-        _gattip.write(C.kGetCharacteristics, params);
     };
 
-    this.addCharacteristic = function(characteristicUUID) {
-        var characteristic;
+    this.discoverCharacteristicsResponse = function (error) {
+        if(!error){
+            params = {};
+            var charsArray = [];
 
-        if(typeof process === 'object' && process+'' === '[object process]') {
-            var c = require("./characteristic.js");
-            characteristic = new c.Characteristic(_gattip, _peripheral, this, characteristicUUID);
-        } else {
-            characteristic = new Characteristic(_gattip, _peripheral, this, characteristicUUID);
+            for (var uuid in this.characteristics) {
+                var obj = {};
+                obj[C.kCharacteristicUUID] = this.characteristics[uuid].uuid;
+                obj[C.kProperties] = (this.characteristics[uuid].properties) ? this.characteristics[uuid].properties : '';
+                obj[C.kValue] = this.characteristics[uuid].value;
+                obj[C.kIsNotifying] = this.characteristics[uuid].isNotifying;
+                charsArray.push(obj);
+            }
+            params[C.kCharacteristics] = charsArray;
+            params[C.kPeripheralUUID] = _peripheral.uuid;
+            params[C.kServiceUUID] = this.uuid;
+
+            _gattip.write(C.kGetCharacteristics, params);
+        }else{
+            _gattip.write(C.kGetCharacteristics, kError32603, error);
         }        
+    };
+
+    this.addCharacteristic = function (characteristicUUID) {
+        var characteristic = new Characteristic(_gattip, _peripheral, this, characteristicUUID);
         this.characteristics[characteristic.uuid] = characteristic;
-        
+
         return characteristic;
     };
 }
@@ -757,10 +787,10 @@ if ((typeof process === 'object' && process + '' === '[object process]') && (typ
 }
 
 
-function Characteristic(gattip, peripheral, service, uuid) {    
+function Characteristic(gattip, peripheral, service, uuid) {
     if (typeof process === 'object' && process + '' === '[object process]') {
-        var consts = require("./constants.js");
-        C = consts.C;
+        C = require("./constants.js").C;
+        Descriptor = require("./discriptor.js").Descriptor;
     }
 
     var _gattip = gattip;
@@ -772,60 +802,66 @@ function Characteristic(gattip, peripheral, service, uuid) {
     this.properties = {};
     this.value = '';
     this.isNotifying = false;
-    
-    if (uuid.length === 4) {
-        if (peripheral.characteristicNames) {
-            var uuidObj = peripheral.characteristicNames[uuid];
-            if (uuidObj !== undefined && uuidObj !== null) {
-                this.characteristicName = uuidObj.name;
-            } else
-                this.characteristicName = uuid;
-        } else
+
+    Object.size = function (obj) {
+        var size = 0, key;
+        for (key in obj) {
+            if (obj.hasOwnProperty(key)) size++;
+        }
+        return size;
+    };
+
+    if (peripheral.characteristicNames && peripheral.characteristicNames[uuid]) {
+        var uuidObj = peripheral.characteristicNames[uuid];
+        if (uuidObj !== undefined && uuidObj !== null) {
+            this.characteristicName = uuidObj.name;
+        } else{
             this.characteristicName = uuid;
-    } else
+        }
+    } else{
         this.characteristicName = uuid;
+    }
 
 
     this.discoverDescriptors = function (callback) {
         if (callback) this.ondiscoverDescriptors = callback;
-        
-        var params = {};
-        params[C.kPeripheralUUID] = _peripheral.uuid;
-        params[C.kServiceUUID] = _service.uuid;
-        params[C.kCharacteristicUUID] = this.uuid;
-        _gattip.write(C.kGetDescriptors, params);
+
+        if (this.descriptors && Object.size(this.descriptors) > 0) {
+            _gattip.ondiscoverDescriptors(_peripheral, _service, this);
+        } else {
+            var params = {};
+            params[C.kPeripheralUUID] = _peripheral.uuid;
+            params[C.kServiceUUID] = _service.uuid;
+            params[C.kCharacteristicUUID] = this.uuid;
+            _gattip.write(C.kGetDescriptors, params);
+        }
     };
-    
+
     this.ondiscoverDescriptors = function (params) {
         for (var index in params[C.kDescriptors]) {
             var descriptorUUID = params[C.kDescriptors][index][C.kDescriptorUUID];
             var descriptor = this.descriptors[descriptorUUID];
             if (!descriptor) {
-                if(typeof process === 'object' && process+'' === '[object process]') {
-                    var desc = require("./discriptor.js");
-                    descriptor = new desc.Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
-                } else {
-                    descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
-                }
-                this.descriptors[descriptorUUID] = descriptor;
+                descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
             }
+            this.descriptors[descriptorUUID] = descriptor;
         }
     };
-    
+
     this.read = function (callback) {
-        if (callback) this.onread = callback;            
+        if (callback) this.onread = callback;
         var params = {};
         params[C.kPeripheralUUID] = _peripheral.uuid;
         params[C.kServiceUUID] = _service.uuid;
         params[C.kCharacteristicUUID] = this.uuid;
         _gattip.write(C.kGetCharacteristicValue, params);
     };
-    
+
     this.onread = function (params) {
         this.isNotifying = params[C.kIsNotifying];
         this.value = params[C.kValue];
     };
-    
+
     this.write = function (data, callback) {
         var restype;
         if (this.properties["WriteWithoutResponse"].enabled == 1 || this.properties["Indicate"].enabled == 1) {
@@ -835,10 +871,10 @@ function Characteristic(gattip, peripheral, service, uuid) {
         }
         this.writeWithResType(data, restype, callback);
     };
-    
+
     this.writeWithResType = function (data, restype, callback) {
         if (callback) this.onread = callback;
-        
+
         var params = {};
         params[C.kPeripheralUUID] = _peripheral.uuid;
         params[C.kServiceUUID] = _service.uuid;
@@ -847,108 +883,120 @@ function Characteristic(gattip, peripheral, service, uuid) {
         params[C.kWriteType] = restype;
         _gattip.write(C.kWriteCharacteristicValue, params);
     };
-    
+
     this.onwrite = function (params, error) {
     };
-    
+
     this.notify = function (value, callback) {
         if (callback) this.onread = callback;
-        
+
         var params = {};
         params[C.kPeripheralUUID] = _peripheral.uuid;
         params[C.kServiceUUID] = _service.uuid;
         params[C.kCharacteristicUUID] = this.uuid;
         params[C.kValue] = value;
         this.isNotifying = value;
-        
+
         _gattip.write(C.kSetValueNotification, params);
     };
-    
+
     this.indicate = function (callback) {
         if (callback) this.onread = callback;
-        
+
         var params = {};
         params[C.kPeripheralUUID] = _peripheral.uuid;
         params[C.kServiceUUID] = _service.uuid;
         params[C.kCharacteristicUUID] = this.uuid;
-        
+
         _gattip.write(C.kGetCharacteristicValue, params);
     };
-    
+
     this.broadcast = function (callback) {
         if (callback) this.onread = callback;
-        
+
         var params = {};
         params[C.kPeripheralUUID] = _peripheral.uuid;
         params[C.kServiceUUID] = _service.uuid;
         params[C.kCharacteristicUUID] = this.uuid;
-        
+
         _gattip.write(C.kGetCharacteristicValue, params);
     };
 
-    this.discoverDescriptorsRequest = function(params, error) {
-        params = {};
-        var discArray = [];
-
-        for (var uuid in this.descriptors) {
-            var obj = {};
-            obj[C.kDescriptorUUID] = this.descriptors[uuid].uuid;
-            obj[C.kProperties] = this.descriptors[uuid].properties;
-            obj[C.kValue] = this.descriptors[uuid].value;
-            obj[C.kIsNotifying] = this.descriptors[uuid].isNotifying;
-            discArray.push(obj);
-        }
-        params[C.kDescriptors] = discArray;
-        params[C.kPeripheralUUID] = _peripheral.uuid;
-        params[C.kServiceUUID] = _service.uuid;
-        params[C.kCharacteristicUUID] = this.uuid;
-
-        _gattip.write(C.kGetDescriptors, params);
-    };
-
-    this.readRequest = function(params, error) {
-        _gattip.readRequest(_peripheral, _service, this, error);
-    };
-
-    this.writeRequest = function(params, error) {
-        _gattip.writeRequest(_peripheral, _service, this, params[C.kValue], error);
-    };
-
-    this.notifyRequest = function(params, error) {
-        _gattip.notifyRequest(_peripheral, _service, this, params[C.kValue], error);
-    };
-
-    this.respondToReadRequest = function(peripheral, service, characteristic, error){
-
-        if(error){
-            this.errorRequest(C.kGetCharacteristicValue);
+    this.discoverDescriptorsRequest = function () {
+        if(_gattip.discoverDescriptorsRequest){
+            _gattip.discoverDescriptorsRequest(_peripheral, _service, this);
         }else{
+            throw Error('discoverDescriptorsRequest method not implemented by server');
+        }
+    };
+
+    this.discoverDescriptorsResponse = function (error) {
+        if(!error){
+            params = {};
+            var discArray = [];
+
+            for (var uuid in this.descriptors) {
+                var obj = {};
+                obj[C.kDescriptorUUID] = this.descriptors[uuid].uuid;
+                obj[C.kProperties] = this.descriptors[uuid].properties;
+                obj[C.kValue] = this.descriptors[uuid].value;
+                obj[C.kIsNotifying] = this.descriptors[uuid].isNotifying;
+                discArray.push(obj);
+            }
+            params[C.kDescriptors] = discArray;
+            params[C.kPeripheralUUID] = _peripheral.uuid;
+            params[C.kServiceUUID] = _service.uuid;
+            params[C.kCharacteristicUUID] = this.uuid;
+
+            _gattip.write(C.kGetDescriptors, params);
+        }else{
+            _gattip.write(C.kGetCharacteristics, kError32603, error);
+        }        
+    };
+
+    this.readCharacteristicValueRequest = function (params) {
+        _gattip.readCharacteristicValueRequest(_peripheral, _service, this);
+    };
+
+    this.writeCharacteristicValueRequest = function (params) {
+        _gattip.writeCharacteristicValueRequest(_peripheral, _service, this, params[C.kValue]);
+    };
+
+    this.enableNotificationsRequest = function (params) {
+        _gattip.enableNotificationsRequest(_peripheral, _service, this, params[C.kValue]);
+    };
+
+    this.respondToReadRequest = function (peripheral, service, characteristic, error) {
+
+        if (error) {
+            this.errorRequest(C.kGetCharacteristicValue);
+        } else {
             params = {};
             params[C.kPeripheralUUID] = peripheral.uuid;
             params[C.kServiceUUID] = service.uuid;
-            params[C.kCharacteristicUUID] = characteristic.uuid;        
+            params[C.kCharacteristicUUID] = characteristic.uuid;
             params[C.kValue] = characteristic.value;
 
             _gattip.write(C.kGetCharacteristicValue, params);
         }
     };
 
-    this.respondToWriteRequest = function(peripheral, service, characteristic, value, error){
+    this.respondToWriteRequest = function (peripheral, service, characteristic, value, error) {
 
-        if(error){
+        if (error) {
             this.errorRequest(C.kWriteCharacteristicValue);
-        }else{
+        } else {
             params = {};
             params[C.kPeripheralUUID] = peripheral.uuid;
             params[C.kServiceUUID] = service.uuid;
-            params[C.kCharacteristicUUID] = characteristic.uuid;        
+            params[C.kCharacteristicUUID] = characteristic.uuid;
             params[C.kValue] = value;
 
             _gattip.write(C.kWriteCharacteristicValue, params);
         }
     };
 
-    this.respondNotify = function(peripheral, service, characteristic, isNotifying, error){
+    this.respondNotify = function (peripheral, service, characteristic, isNotifying, error) {
         params = {};
         params[C.kPeripheralUUID] = peripheral.uuid;
         params[C.kServiceUUID] = service.uuid;
@@ -959,26 +1007,19 @@ function Characteristic(gattip, peripheral, service, uuid) {
         _gattip.write(C.kSetValueNotification, params);
     };
 
-    this.addDescriptor = function(descriptorUUID) {
-        var descriptor;
-
-        if(typeof process === 'object' && process+'' === '[object process]') {
-            var desc = require("./discriptor.js");
-            descriptor = new desc.Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
-        } else {
-            descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
-        }
+    this.addDescriptor = function (descriptorUUID) {
+        var descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
         this.descriptors[descriptor.uuid] = descriptor;
 
         return descriptor;
     };
 
-    this.updateValue = function(value) {
+    this.updateValue = function (value) {
         this.value = value;
         return this;
     };
 
-    this.updateProperties = function(properties) {
+    this.updateProperties = function (properties) {
         this.properties = properties;
         return this;
     };
@@ -999,24 +1040,23 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
     this.properties = {};
     this.isNotifying = false;
 
-    if (uuid.length === 4) {
-        if (peripheral.descriptorNames) {
-            var uuidObj = peripheral.descriptorNames[uuid];
-            if (uuidObj !== undefined && uuidObj !== null) {
-                this.descriptorName = uuidObj.name;
-            } else
-                this.descriptorName = uuid;
-        } else
+    if (peripheral.descriptorNames && peripheral.descriptorNames[uuid]) {
+        var uuidObj = peripheral.descriptorNames[uuid];
+        if (uuidObj !== undefined && uuidObj !== null) {
+            this.descriptorName = uuidObj.name;
+        } else{
             this.descriptorName = uuid;
-    } else
+        }
+    } else{
         this.descriptorName = uuid;
+    }
 
-    this.updateValue = function(value) {
+    this.updateValue = function (value) {
         this.value = value;
         return this;
     };
 
-    this.updateProperties = function(properties) {
+    this.updateProperties = function (properties) {
         this.properties = properties;
         return this;
     };
@@ -1112,14 +1152,14 @@ var C = {
     kUnauthorized: "cn",
     kPoweredOff: "co",
     kPoweredOn: "cp",
-    kError32001: "-32001",
-    kError32002: "-32002",
-    kError32003: "-32003",
-    kError32004: "-32004",
-    kError32005: "-32005",
-    kError32006: "-32006",
-    kError32007: "-32007",
-    kError32008: "-32008",
+    kErrorPeripheralNotFound: "-32001",
+    kErrorServiceNotFound: "-32002",
+    kErrorCharacteristicNotFound: "-32003",
+    kErrorDescriptorNotFound: "-32004",
+    kErrorPeripheralStateIsNotValid: "-32005",
+    kErrorNoServiceSpecified: "-32006",
+    kErrorNoPeripheralIdentiferSpecified: "-32007",
+    kErrorStateRestorationNotValid: "-32008",
     kInvalidRequest: "-32600",
     kMethodNotFound: "-32601",
     kInvalidParams: "-32602",
