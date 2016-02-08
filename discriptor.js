@@ -5,6 +5,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
     var _characteristic = characteristic;
     this.uuid = uuid;
     this.value = "";
+    this.descriptorName = '';
     this.properties = {};
     this.isNotifying = false;
 
@@ -12,11 +13,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         var uuidObj = peripheral.descriptorNames[uuid];
         if (uuidObj !== undefined && uuidObj !== null) {
             this.descriptorName = uuidObj.name;
-        } else{
-            this.descriptorName = uuid;
         }
-    } else{
-        this.descriptorName = uuid;
     }
 
     this.updateValue = function (value) {

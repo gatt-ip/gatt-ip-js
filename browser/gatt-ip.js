@@ -337,18 +337,6 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
 
     var self = this;
 
-    $.getJSON(path + "bleServices.json", function(res) {
-        self.serviceNames = res;
-    });
-
-    $.getJSON(path + "bleCharacteristics.json", function (res) {
-        self.characteristicNames = res;
-    });
-
-    $.getJSON(path + "bleDescriptors.json", function (res) {
-        self.descriptorNames = res;
-    });
-
     var flag = true;
 
     Object.size = function (obj) {
@@ -401,6 +389,18 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
     this.connect = function (callback) {
         if (callback) this.onconnect = callback;
 
+        $.getJSON(path + "bleServices.json", function(res) {
+            self.serviceNames = res;
+        });
+
+        $.getJSON(path + "bleCharacteristics.json", function (res) {
+            self.characteristicNames = res;
+        });
+
+        $.getJSON(path + "bleDescriptors.json", function (res) {
+            self.descriptorNames = res;
+        });
+
         var params = {};
         params[C.kPeripheralUUID] = this.uuid;
         _gattip.write(C.kConnect, params);
@@ -431,9 +431,9 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
         _gattip.write(C.kDisconnect, params);
     };
 
-    this.ondisconnect = function (deviceName, error) {
+    this.ondisconnect = function (error) {
         if (!error) {
-            console.log(deviceName + ' disconnected');
+            console.log(this.name + ' disconnected');
             this.isConnected = false;
         }
     };
@@ -679,6 +679,7 @@ function Service(gattip, peripheral, uuid) {
     this.isPrimary = true; //TODO: read from remote
     this.characteristics = {};
     this.includedServices = {};
+    this.serviceName = '';
 
     Object.size = function (obj) {
         var size = 0, key;
@@ -692,13 +693,8 @@ function Service(gattip, peripheral, uuid) {
         var uuidObj = peripheral.serviceNames[uuid];
         if (uuidObj !== undefined && uuidObj !== null) {
             this.serviceName = uuidObj.name;
-        } else{
-            this.serviceName = uuid;
         }
-    } else{
-        this.serviceName = uuid;
     }
-
 
     this.discoverIncludedServices = function (callback) {
     };
@@ -801,6 +797,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
     this.descriptors = {};
     this.properties = {};
     this.value = '';
+    this.characteristicName = '';
     this.isNotifying = false;
 
     Object.size = function (obj) {
@@ -815,11 +812,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         var uuidObj = peripheral.characteristicNames[uuid];
         if (uuidObj !== undefined && uuidObj !== null) {
             this.characteristicName = uuidObj.name;
-        } else{
-            this.characteristicName = uuid;
         }
-    } else{
-        this.characteristicName = uuid;
     }
 
 
@@ -1037,6 +1030,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
     var _characteristic = characteristic;
     this.uuid = uuid;
     this.value = "";
+    this.descriptorName = '';
     this.properties = {};
     this.isNotifying = false;
 
@@ -1044,11 +1038,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         var uuidObj = peripheral.descriptorNames[uuid];
         if (uuidObj !== undefined && uuidObj !== null) {
             this.descriptorName = uuidObj.name;
-        } else{
-            this.descriptorName = uuid;
         }
-    } else{
-        this.descriptorName = uuid;
     }
 
     this.updateValue = function (value) {

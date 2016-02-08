@@ -12,6 +12,7 @@ function Service(gattip, peripheral, uuid) {
     this.isPrimary = true; //TODO: read from remote
     this.characteristics = {};
     this.includedServices = {};
+    this.serviceName = '';
 
     Object.size = function (obj) {
         var size = 0, key;
@@ -25,13 +26,8 @@ function Service(gattip, peripheral, uuid) {
         var uuidObj = peripheral.serviceNames[uuid];
         if (uuidObj !== undefined && uuidObj !== null) {
             this.serviceName = uuidObj.name;
-        } else{
-            this.serviceName = uuid;
         }
-    } else{
-        this.serviceName = uuid;
     }
-
 
     this.discoverIncludedServices = function (callback) {
     };

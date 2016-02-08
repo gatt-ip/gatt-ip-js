@@ -12,6 +12,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
     this.descriptors = {};
     this.properties = {};
     this.value = '';
+    this.characteristicName = '';
     this.isNotifying = false;
 
     Object.size = function (obj) {
@@ -26,11 +27,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         var uuidObj = peripheral.characteristicNames[uuid];
         if (uuidObj !== undefined && uuidObj !== null) {
             this.characteristicName = uuidObj.name;
-        } else{
-            this.characteristicName = uuid;
         }
-    } else{
-        this.characteristicName = uuid;
     }
 
 

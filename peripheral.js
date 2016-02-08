@@ -25,18 +25,6 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
 
     var self = this;
 
-    $.getJSON(path + "bleServices.json", function(res) {
-        self.serviceNames = res;
-    });
-
-    $.getJSON(path + "bleCharacteristics.json", function (res) {
-        self.characteristicNames = res;
-    });
-
-    $.getJSON(path + "bleDescriptors.json", function (res) {
-        self.descriptorNames = res;
-    });
-
     var flag = true;
 
     Object.size = function (obj) {
@@ -89,6 +77,18 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
     this.connect = function (callback) {
         if (callback) this.onconnect = callback;
 
+        $.getJSON(path + "bleServices.json", function(res) {
+            self.serviceNames = res;
+        });
+
+        $.getJSON(path + "bleCharacteristics.json", function (res) {
+            self.characteristicNames = res;
+        });
+
+        $.getJSON(path + "bleDescriptors.json", function (res) {
+            self.descriptorNames = res;
+        });
+
         var params = {};
         params[C.kPeripheralUUID] = this.uuid;
         _gattip.write(C.kConnect, params);
@@ -119,9 +119,9 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
         _gattip.write(C.kDisconnect, params);
     };
 
-    this.ondisconnect = function (deviceName, error) {
+    this.ondisconnect = function (error) {
         if (!error) {
-            console.log(deviceName + ' disconnected');
+            console.log(this.name + ' disconnected');
             this.isConnected = false;
         }
     };
