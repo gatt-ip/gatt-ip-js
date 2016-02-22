@@ -110,6 +110,6 @@ var C = {
     AllProperties: ["Broadcast", "Read", "WriteWithoutResponse", "Write", "Notify", "Indicate", "AuthenticatedSignedWrites", "ExtendedProperties", "NotifyEncryptionRequired", "IndicateEncryptionRequired"]
 }
 
-if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== "undefined")) {
+if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== 'undefined')) {
     exports.C = C;
 }

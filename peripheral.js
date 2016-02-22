@@ -79,19 +79,16 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
 
         $.getJSON(path + "bleServices.json", function(res) {
             self.serviceNames = res;
+            $.getJSON(path + "bleCharacteristics.json", function (res) {
+                self.characteristicNames = res;
+                $.getJSON(path + "bleDescriptors.json", function (res) {
+                    self.descriptorNames = res;
+                    var params = {};
+                    params[C.kPeripheralUUID] = self.uuid;
+                    _gattip.write(C.kConnect, params);
+                });
+            });
         });
-
-        $.getJSON(path + "bleCharacteristics.json", function (res) {
-            self.characteristicNames = res;
-        });
-
-        $.getJSON(path + "bleDescriptors.json", function (res) {
-            self.descriptorNames = res;
-        });
-
-        var params = {};
-        params[C.kPeripheralUUID] = this.uuid;
-        _gattip.write(C.kConnect, params);
     };
 
     this.onconnect = function (error) {
@@ -349,6 +346,6 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
 
 }
 
-if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== "undefined")) {
+if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== 'undefined')) {
     exports.Peripheral = Peripheral;
 }

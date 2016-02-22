@@ -111,7 +111,7 @@ function Service(gattip, peripheral, uuid) {
     };
 }
 
-if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== "undefined")) {
+if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== 'undefined')) {
     exports.Service = Service;
 }
 

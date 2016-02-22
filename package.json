@@ -1,6 +1,6 @@
 {
   "name": "gatt-ip-js",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "GATT-IP library is A simple javascript protocol to connect any Bluetooth Smart (GATT) Device to the IP network",
   "main": "index.js",
   "ignore": [
