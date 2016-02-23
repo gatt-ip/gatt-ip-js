@@ -60,33 +60,35 @@ function GATTIP() {
                 if (response.params && response.params[C.kPeripheralUUID])
                     peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
                 if (!response.error) {
-                    if (!peripheral) {
-                        this.onerror("unknown peripheral");
-                    } else {
+                    if (peripheral) {
                         peripheral.ondiscoverServices(response.params, response.error);
                         for(var suuid in response.params[C.kServices]){
-                            service = peripheral.services[response.params[C.kServices][suuid][C.kServiceUUID]];
+                            service = peripheral.services[suuid];
                             if(service){
                                 service.ondiscoverCharacteristics(response.params[C.kServices][suuid], response.error);
-                                var characteristics = response.params[C.kServices][service.uuid][C.kCharacteristics];
-
                                 for(var cuuid in service.characteristics){
                                     characteristic = service.characteristics[cuuid];
-                                    characteristic.ondiscoverDescriptors(response.params[C.kServices][service.uuid][C.kCharacteristics][cuuid], response.error);
-                                    //To get the Characteristic name, reading the descriptor value
-                                    for(var duuid in characteristic.descriptors){ 
-                                        descriptor = characteristic.descriptors[duuid];
-                                        var charcNameDescUUID = '2901';
-                                        if(descriptor && (duuid == charcNameDescUUID) && descriptor.properties.Read){
-                                            descriptor.read();
+                                    if(characteristic){
+                                        characteristic.ondiscoverDescriptors(response.params[C.kServices][service.uuid][C.kCharacteristics][cuuid], response.error);
+                                        //To get the Characteristic name, reading the descriptor value
+                                        for(var duuid in characteristic.descriptors){ 
+                                            descriptor = characteristic.descriptors[duuid];
+                                            var charcNameDescUUID = '2901';
+                                            if(descriptor && (duuid == charcNameDescUUID) && descriptor.properties.Read){
+                                                descriptor.read();
+                                            }
                                         }
+                                    }else{
+                                        this.onerror("Characteristic not found");
                                     }
                                 }
                             }else{
-                                this.onerror("unknown service");
+                                this.onerror("Service not found");
                             }
                         }
-                        peripheral.onconnect();
+                        peripheral.onconnect();                        
+                    } else {
+                        this.onerror("Peripheral not found");                        
                     }
                 }else{
                     peripheral.onconnect(response.error);
@@ -1111,6 +1113,56 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         this.isNotifying = params[C.kIsNotifying];
         this.value = params[C.kValue];
     };
+
+    this.readDescriptorValueRequest = function (params) {
+        if(_gattip.readDescriptorValueRequest){
+            _gattip.readDescriptorValueRequest(_peripheral, _service, _characteristic, this);
+        }else{
+            throw Error('readDescriptorValueRequest method not implemented by server');
+        }
+    };
+
+    this.writeDescriptorValueRequest = function (params) {
+        if(_gattip.writeDescriptorValueRequest){
+            _gattip.writeDescriptorValueRequest(_peripheral, _service, _characteristic, this, params[C.kValue]);
+        }else{
+            throw Error('writeDescriptorValueRequest method not implemented by server');
+        }        
+    };
+
+    this.respondToReadDescriptorValueRequest = function (error) {
+
+        if (error) {
+            this.errorRequest(C.kGetDescriptorValue);
+        } else {
+            params = {};
+            params[C.kPeripheralUUID] = _peripheral.uuid;
+            params[C.kServiceUUID] = _service.uuid;
+            params[C.kCharacteristicUUID] = _characteristic.uuid;
+            params[C.kDescriptorUUID] = this.uuid;
+            params[C.kValue] = this.value;
+            params[C.kIsNotifying] = this.isNotifying;
+
+            _gattip.write(C.kGetDescriptorValue, params);
+        }
+    };
+
+    this.respondToWriteDescriptorValueRequest = function (error) {
+
+        if (error) {
+            this.errorRequest(C.kWriteDescriptorValue);
+        } else {
+            params = {};
+            params[C.kPeripheralUUID] = _peripheral.uuid;
+            params[C.kServiceUUID] = _service.uuid;
+            params[C.kCharacteristicUUID] = _characteristic.uuid;
+            params[C.kDescriptorUUID] = this.uuid;
+            params[C.kValue] = this.value;
+
+            _gattip.write(C.kWriteDescriptorValue, params);
+        }
+    };
+
 
 }
 

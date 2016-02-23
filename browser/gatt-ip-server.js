@@ -64,6 +64,11 @@ function GattIpServer() {
             return;
         }
 
+        if (message.error) {
+            this.sendErrorResponse(message.method, C.kInvalidRequest, 'Error in the Request');
+            return;
+        }
+
         //TODO: It is better to remove the devices, if length is going to infinite, based on like recently used..
         //TODO: General comment - you should not be tracking peripherals/services/etc.
         //  Burden the gateway to do this and respond accordingly TO YOU with appropriate error
@@ -82,72 +87,32 @@ function GattIpServer() {
         //TODO: Consider putting this in an associative array, rather than a switch
         switch (message.method) {
             case C.kConfigure:
-                // TODO: Extract this check. It's the same as all of the ones below
-                if (!this.configureRequest) {
-                    throw Error('configureRequest method not implemented by server');
-                }
-                //TODO: scanRequest(whaterver the arguments are - power on? .. what else?), no error - there can be no error
-                this.configureRequest(message.params, message.error);
+                this.configureRequest(message.params);
                 break;
             case C.kScanForPeripherals:
-                // TODO: Extract this check. It's the same as all of the ones below
-                if (!this.scanRequest) {
-                    throw Error('scanRequest method not implemented by server');
-                }
-                if (message.error) {
-                    this.sendErrorResponse(message.method, C.kInvalidRequest);
-                } else {
-                    this.scanRequest(message.params);
-                }
+                this.scanRequest(message.params);
                 break;
             case C.kStopScanning:
-                // TODO: Extract this check. It's the same as all of the ones below
-                if (!this.stopScanRequest) {
-                    throw Error('stopScanRequest method not implemented by server');
-                }
-                if (message.error) {
-                    this.sendErrorResponse(message.method, C.kInvalidRequest);
-                } else {
-                    this.stopScanRequest(message.params);
-                }
+                this.stopScanRequest(message.params);
                 break;
             case C.kConnect:
-                if (!this.connectRequest) {
-                    throw Error('connectRequest method not implemented by server');
-                }
-                peripheral = this.peripherals[message.params[C.kPeripheralUUID]];
-                if (message.error) {
-                    this.sendErrorResponse(message.method, C.kInvalidRequest);
-                } else if (peripheral) {
-                    this.connectRequest(peripheral);
-                } else {
-                    this.sendErrorResponse(message.method, C.kErrorPeripheralNotFound);
+                try{
+                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                    this.connectRequest(gObject.peripheral);
+                }catch (ex){
+                    console.error(ex);
                 }
                 break;
             case C.kDisconnect:
-                // TODO: Extract this check. It's the same as all of the ones below
-                if (!this.disconnectRequest) {
-                    throw Error('disconnectRequest method not implemented by server');
-                }
-                peripheral = this.peripherals[message.params[C.kPeripheralUUID]];
-                if (message.error) {
-                    this.sendErrorResponse(message.method, C.kInvalidRequest);
-                } else if (peripheral) {
-                    this.disconnectRequest(peripheral);
-                } else {
-                    this.sendErrorResponse(message.method, C.kErrorPeripheralNotFound);
+                try{
+                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                    this.disconnectRequest(gObject.peripheral);
+                }catch (ex){
+                    console.error(ex);
                 }
                 break;
             case C.kCentralState:
-                // TODO: Extract this check. It's the same as all of the ones below
-                if (!this.centralStateRequest) {
-                    throw Error('centralStateRequest method not implemented by server');
-                }
-                if (message.error) {
-                    this.sendErrorResponse(message.method, C.kInvalidRequest);
-                } else {
-                    this.centralStateRequest(message.params);
-                }
+                this.centralStateRequest(message.params);
                 break;
             case C.kGetServices:
                 try{
@@ -205,14 +170,25 @@ function GattIpServer() {
                 }
                 break;
             case C.kGetDescriptorValue:
-                console.log("kGetDescriptorValue event"); //TODO
+                try{
+                    gObject = this.getObjects('D', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                    gObject.descriptor.readDescriptorValueRequest(message.params);
+                }catch (ex){
+                    console.error(ex);
+                }
                 break;
             case C.kWriteDescriptorValue:
-                console.log("kWriteDescriptorValue event"); //TODO
+                try{
+                    gObject = this.getObjects('D', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                    gObject.descriptor.writeDescriptorValueRequest(message.params);
+                }catch (ex){
+                    console.error(ex);
+                }
                 break;
 
             default:
-                console.log('invalid request');
+                console.log('invalid request'+ message.method);
+                this.sendErrorResponse(message.method, C.kInvalidRequest, 'Request not handled by server');
                 return;
         }
         this.message = message;
@@ -238,8 +214,8 @@ function GattIpServer() {
                     if(type === 'C') {
                         return resultObj;
                     }
-                    descriptor = resultObj.characteristic.descriptors[descriptorUUID];
-                    if(resultObj.descriptors){
+                    resultObj.descriptor = resultObj.characteristic.descriptors[descriptorUUID];
+                    if(resultObj.descriptor){
                         return resultObj;
                     }else{
                         this.sendErrorResponse(message.method, C.kErrorDescriptorNotFound);
@@ -276,6 +252,10 @@ function GattIpServer() {
         }));
     };
 
+    this.configureRequest = function(){
+        console.error('configureRequest method not implemented by server');
+    };
+
     this.configureResponse = function (error) {
         if (!error) {
             this.write(C.kConfigure);
@@ -284,6 +264,10 @@ function GattIpServer() {
         }
     };
 
+    this.centralStateRequest = function(){
+        console.error('centralStateRequest method not implemented by server');
+    };
+    
     this.centralStateResponse = function (state, error) {
         if (!error) {
             params = {};
@@ -292,6 +276,10 @@ function GattIpServer() {
         } else {
             this.write(C.kCentralState, error);
         }
+    };
+
+    this.scanRequest = function(){
+        console.error('scanRequest method not implemented by server');
     };
 
     this.scanResponse = function (name, uuid, addr, rssi, advertisementData, manufacturerData) {
@@ -309,6 +297,10 @@ function GattIpServer() {
         this.write(C.kScanForPeripherals, params);
     };
 
+    this.stopScanRequest = function(){
+        console.error('stopScanRequest method not implemented by server');
+    };
+
     this.stopScanResponse = function (error) {
         if (!error) {
             this.write(C.kStopScanning);
@@ -316,6 +308,10 @@ function GattIpServer() {
             this.write(C.kStopScanning, error);
         }
 
+    };
+
+    this.connectRequest = function(){
+        console.error('connectRequest method not implemented by server');
     };
 
     this.connectResponse = function (peripheral, error) {
@@ -334,6 +330,10 @@ function GattIpServer() {
         }
     };
 
+    this.disconnectRequest = function(){
+        console.error('disconnectRequest method not implemented by server');
+    };
+    
     this.disconnectResponse = function (peripheral, error) {
         if (!error) {
             params = {};
@@ -1235,6 +1235,56 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         this.isNotifying = params[C.kIsNotifying];
         this.value = params[C.kValue];
     };
+
+    this.readDescriptorValueRequest = function (params) {
+        if(_gattip.readDescriptorValueRequest){
+            _gattip.readDescriptorValueRequest(_peripheral, _service, _characteristic, this);
+        }else{
+            throw Error('readDescriptorValueRequest method not implemented by server');
+        }
+    };
+
+    this.writeDescriptorValueRequest = function (params) {
+        if(_gattip.writeDescriptorValueRequest){
+            _gattip.writeDescriptorValueRequest(_peripheral, _service, _characteristic, this, params[C.kValue]);
+        }else{
+            throw Error('writeDescriptorValueRequest method not implemented by server');
+        }        
+    };
+
+    this.respondToReadDescriptorValueRequest = function (error) {
+
+        if (error) {
+            this.errorRequest(C.kGetDescriptorValue);
+        } else {
+            params = {};
+            params[C.kPeripheralUUID] = _peripheral.uuid;
+            params[C.kServiceUUID] = _service.uuid;
+            params[C.kCharacteristicUUID] = _characteristic.uuid;
+            params[C.kDescriptorUUID] = this.uuid;
+            params[C.kValue] = this.value;
+            params[C.kIsNotifying] = this.isNotifying;
+
+            _gattip.write(C.kGetDescriptorValue, params);
+        }
+    };
+
+    this.respondToWriteDescriptorValueRequest = function (error) {
+
+        if (error) {
+            this.errorRequest(C.kWriteDescriptorValue);
+        } else {
+            params = {};
+            params[C.kPeripheralUUID] = _peripheral.uuid;
+            params[C.kServiceUUID] = _service.uuid;
+            params[C.kCharacteristicUUID] = _characteristic.uuid;
+            params[C.kDescriptorUUID] = this.uuid;
+            params[C.kValue] = this.value;
+
+            _gattip.write(C.kWriteDescriptorValue, params);
+        }
+    };
+
 
 }
 

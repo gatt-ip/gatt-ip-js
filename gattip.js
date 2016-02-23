@@ -60,33 +60,35 @@ function GATTIP() {
                 if (response.params && response.params[C.kPeripheralUUID])
                     peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
                 if (!response.error) {
-                    if (!peripheral) {
-                        this.onerror("unknown peripheral");
-                    } else {
+                    if (peripheral) {
                         peripheral.ondiscoverServices(response.params, response.error);
                         for(var suuid in response.params[C.kServices]){
-                            service = peripheral.services[response.params[C.kServices][suuid][C.kServiceUUID]];
+                            service = peripheral.services[suuid];
                             if(service){
                                 service.ondiscoverCharacteristics(response.params[C.kServices][suuid], response.error);
-                                var characteristics = response.params[C.kServices][service.uuid][C.kCharacteristics];
-
                                 for(var cuuid in service.characteristics){
                                     characteristic = service.characteristics[cuuid];
-                                    characteristic.ondiscoverDescriptors(response.params[C.kServices][service.uuid][C.kCharacteristics][cuuid], response.error);
-                                    //To get the Characteristic name, reading the descriptor value
-                                    for(var duuid in characteristic.descriptors){ 
-                                        descriptor = characteristic.descriptors[duuid];
-                                        var charcNameDescUUID = '2901';
-                                        if(descriptor && (duuid == charcNameDescUUID) && descriptor.properties.Read){
-                                            descriptor.read();
+                                    if(characteristic){
+                                        characteristic.ondiscoverDescriptors(response.params[C.kServices][service.uuid][C.kCharacteristics][cuuid], response.error);
+                                        //To get the Characteristic name, reading the descriptor value
+                                        for(var duuid in characteristic.descriptors){ 
+                                            descriptor = characteristic.descriptors[duuid];
+                                            var charcNameDescUUID = '2901';
+                                            if(descriptor && (duuid == charcNameDescUUID) && descriptor.properties.Read){
+                                                descriptor.read();
+                                            }
                                         }
+                                    }else{
+                                        this.onerror("Characteristic not found");
                                     }
                                 }
                             }else{
-                                this.onerror("unknown service");
+                                this.onerror("Service not found");
                             }
                         }
-                        peripheral.onconnect();
+                        peripheral.onconnect();                        
+                    } else {
+                        this.onerror("Peripheral not found");                        
                     }
                 }else{
                     peripheral.onconnect(response.error);
