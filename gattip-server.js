@@ -10,12 +10,12 @@ function GattIpServer() {
     this.state = C.kUnknown;
     this.peripherals = {};
 
-    this.init = function (url, callback) {
+    this.init = function(url, callback) {
         if (callback) this.oninit = callback;
 
         this.socket = new WebSocket(url);
 
-        this.socket.onopen = function () {
+        this.socket.onopen = function() {
             this.initWithServer(this.socket);
             if (this.oninit) {
                 this.oninit();
@@ -23,7 +23,7 @@ function GattIpServer() {
         }.bind(this);
     };
 
-    this.initWithServer = function (_server) {
+    this.initWithServer = function(_server) {
         server = _server;
 
         if (!server.send) {
@@ -32,23 +32,23 @@ function GattIpServer() {
         server.onmessage = this.processMessage.bind(this);
 
         if (!server.onclose) {
-            server.onclose = function () {
+            server.onclose = function() {
                 console.log('socket is closed')
             };
         }
         if (!server.onerror) {
-            server.onerror = function (error) {
+            server.onerror = function(error) {
                 console.log('socket is onerror, onerror' + error);
             };
         }
         if (!server.error) {
-            server.onerror = function (error) {
+            server.onerror = function(error) {
                 console.log('socket is error, error' + error);
             };
         }
     };
 
-    this.processMessage = function (mesg) {
+    this.processMessage = function(mesg) {
         var message = JSON.parse(mesg.data);
         var params, peripheral, service, characteristic, descriptor, gObject;
 
@@ -96,18 +96,18 @@ function GattIpServer() {
                 this.stopScanRequest(message.params);
                 break;
             case C.kConnect:
-                try{
-                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                try {
+                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     this.connectRequest(gObject.peripheral);
-                }catch (ex){
+                } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kDisconnect:
-                try{
-                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                try {
+                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     this.disconnectRequest(gObject.peripheral);
-                }catch (ex){
+                } catch (ex) {
                     console.error(ex);
                 }
                 break;
@@ -115,10 +115,10 @@ function GattIpServer() {
                 this.centralStateRequest(message.params);
                 break;
             case C.kGetServices:
-                try{
-                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                try {
+                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     gObject.peripheral.discoverServicesRequest();
-                }catch (ex){
+                } catch (ex) {
                     console.error(ex);
                 }
                 break;
@@ -129,65 +129,65 @@ function GattIpServer() {
                 console.log("kInvalidatedServices event"); //TODO
                 break;
             case C.kGetCharacteristics:
-                try{
-                    gObject = this.getObjects('S', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                try {
+                    gObject = this.getObjects('S', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     gObject.service.discoverCharacteristicsRequest();
-                }catch (ex){
+                } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kGetDescriptors:
-                try{
-                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                try {
+                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     gObject.characteristic.discoverDescriptorsRequest();
-                }catch (ex){
+                } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kGetCharacteristicValue:
-                try{
-                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                try {
+                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     gObject.characteristic.readCharacteristicValueRequest(message.params);
-                }catch (ex){
+                } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kWriteCharacteristicValue:
-                try{
-                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                try {
+                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     gObject.characteristic.writeCharacteristicValueRequest(message.params);
-                }catch (ex){
+                } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kSetValueNotification:
-                try{
-                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                try {
+                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     gObject.characteristic.isNotifying = message.params[C.kValue];
                     gObject.characteristic.enableNotificationsRequest(message.params);
-                }catch (ex){
+                } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kGetDescriptorValue:
-                try{
-                    gObject = this.getObjects('D', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                try {
+                    gObject = this.getObjects('D', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     gObject.descriptor.readDescriptorValueRequest(message.params);
-                }catch (ex){
+                } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kWriteDescriptorValue:
-                try{
-                    gObject = this.getObjects('D', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID],  message.params[C.kDescriptorUUID]);
+                try {
+                    gObject = this.getObjects('D', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     gObject.descriptor.writeDescriptorValueRequest(message.params);
-                }catch (ex){
+                } catch (ex) {
                     console.error(ex);
                 }
                 break;
 
             default:
-                console.log('invalid request'+ message.method);
+                console.log('invalid request' + message.method);
                 this.sendErrorResponse(message.method, C.kInvalidRequest, 'Request not handled by server');
                 return;
         }
@@ -195,37 +195,37 @@ function GattIpServer() {
     };
 
 
-    this.getObjects = function(type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID){
+    this.getObjects = function(type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
 
         var resultObj = {};
 
         resultObj.peripheral = this.peripherals[peripheralUUID];
         if (resultObj.peripheral) {
-            if(type === 'P') {
+            if (type === 'P') {
                 return resultObj;
             }
             resultObj.service = resultObj.peripheral.services[serviceUUID];
             if (resultObj.service) {
-                if(type === 'S') {
+                if (type === 'S') {
                     return resultObj;
                 }
                 resultObj.characteristic = resultObj.service.characteristics[characteristicUUID];
                 if (resultObj.characteristic) {
-                    if(type === 'C') {
+                    if (type === 'C') {
                         return resultObj;
                     }
                     resultObj.descriptor = resultObj.characteristic.descriptors[descriptorUUID];
-                    if(resultObj.descriptor){
+                    if (resultObj.descriptor) {
                         return resultObj;
-                    }else{
+                    } else {
                         this.sendErrorResponse(message.method, C.kErrorDescriptorNotFound);
                         throw Error('Descriptor not found');
                     }
-                }else{
+                } else {
                     this.sendErrorResponse(message.method, C.kErrorCharacteristicNotFound);
                     throw Error('Characteristic not found');
                 }
-            }else{
+            } else {
                 this.sendErrorResponse(message.method, C.kErrorServiceNotFound);
                 throw Error('Service not found');
             }
@@ -236,27 +236,27 @@ function GattIpServer() {
 
     };
 
-    this.sendErrorResponse = function (method, errorId, errMessage) {
-        var error = {},
-            params = {};
+    this.sendErrorResponse = function(method, errorId, errMessage) {
+        var error = {};
+        params = {};
         error[C.kIdField] = errorId;
-        error[C.kMessageField] = errMessage;        
+        error[C.kMessageField] = errMessage;
         params[C.kError] = error;
-        this.write(method, params);
+        this.write(method, undefined, undefined, error);
     };
 
-    this.authenticate = function (token) {
+    this.authenticate = function(token) {
         this.send(JSON.stringify({
             type: C.authenticate,
             access_token: token
         }));
     };
 
-    this.configureRequest = function(){
+    this.configureRequest = function() {
         console.error('configureRequest method not implemented by server');
     };
 
-    this.configureResponse = function (error) {
+    this.configureResponse = function(error) {
         if (!error) {
             this.write(C.kConfigure);
         } else {
@@ -264,11 +264,11 @@ function GattIpServer() {
         }
     };
 
-    this.centralStateRequest = function(){
+    this.centralStateRequest = function() {
         console.error('centralStateRequest method not implemented by server');
     };
-    
-    this.centralStateResponse = function (state, error) {
+
+    this.centralStateResponse = function(state, error) {
         if (!error) {
             params = {};
             params[C.kState] = state;
@@ -278,11 +278,11 @@ function GattIpServer() {
         }
     };
 
-    this.scanRequest = function(){
+    this.scanRequest = function() {
         console.error('scanRequest method not implemented by server');
     };
 
-    this.scanResponse = function (name, uuid, addr, rssi, advertisementData, manufacturerData) {
+    this.scanResponse = function(name, uuid, addr, rssi, advertisementData, manufacturerData) {
         params = {};
         var advData = {};
 
@@ -297,11 +297,11 @@ function GattIpServer() {
         this.write(C.kScanForPeripherals, params);
     };
 
-    this.stopScanRequest = function(){
+    this.stopScanRequest = function() {
         console.error('stopScanRequest method not implemented by server');
     };
 
-    this.stopScanResponse = function (error) {
+    this.stopScanResponse = function(error) {
         if (!error) {
             this.write(C.kStopScanning);
         } else {
@@ -310,11 +310,11 @@ function GattIpServer() {
 
     };
 
-    this.connectRequest = function(){
+    this.connectRequest = function() {
         console.error('connectRequest method not implemented by server');
     };
 
-    this.connectResponse = function (peripheral, error) {
+    this.connectResponse = function(peripheral, error) {
         var peripheral_db = {};
         peripheral_db[C.kPeripheralUUID] = peripheral.uuid;
         peripheral_db[C.kPeripheralName] = peripheral.name;
@@ -330,11 +330,11 @@ function GattIpServer() {
         }
     };
 
-    this.disconnectRequest = function(){
+    this.disconnectRequest = function() {
         console.error('disconnectRequest method not implemented by server');
     };
-    
-    this.disconnectResponse = function (peripheral, error) {
+
+    this.disconnectResponse = function(peripheral, error) {
         if (!error) {
             params = {};
             params[C.kPeripheralUUID] = peripheral.uuid;
@@ -346,17 +346,18 @@ function GattIpServer() {
         }
     };
 
-    this.write = function (result, params, id) {
+    this.write = function(result, params, id, error) {
         var mesg = {};
         mesg.jsonrpc = "2.0";
         mesg.result = result;
         mesg.params = params;
+        mesg.error = error;
         mesg.id = C.id.toString();
         C.id += 1;
         this.send(JSON.stringify(mesg));
     };
 
-    this.send = function (mesg) {
+    this.send = function(mesg) {
         if (!server) {
             this.onerror("not connected");
             return;
@@ -364,34 +365,34 @@ function GattIpServer() {
         server.send(mesg);
     };
 
-    this.close = function (callback) {
+    this.close = function(callback) {
         if (server) {
             server.close();
         }
     };
 
-    function getServiceJsonFromPeripheralObject(myPeripheral){
+    function getServiceJsonFromPeripheralObject(myPeripheral) {
         var service_db = {};
 
-        if(myPeripheral && myPeripheral.services){
-            for(var uuid in myPeripheral.services){
+        if (myPeripheral && myPeripheral.services) {
+            for (var uuid in myPeripheral.services) {
                 var temp_service = {};
                 temp_service[C.kServiceUUID] = uuid;
                 temp_service[C.kIsPrimaryKey] = myPeripheral.services[uuid].isPrimary;
                 temp_service[C.kCharacteristics] = getCharacteristicJsonFromServiceObject(myPeripheral.services[uuid]);
 
-                service_db[uuid] = temp_service;            
+                service_db[uuid] = temp_service;
             }
         }
 
         return service_db;
     }
 
-    function getCharacteristicJsonFromServiceObject(myService){
+    function getCharacteristicJsonFromServiceObject(myService) {
         var characteristic_db = {};
 
-        if(myService && myService.characteristics){
-            for(var uuid in myService.characteristics){
+        if (myService && myService.characteristics) {
+            for (var uuid in myService.characteristics) {
                 var temp_characteristic = {};
                 temp_characteristic[C.kCharacteristicUUID] = uuid;
                 temp_characteristic[C.kValue] = myService.characteristics[uuid].value;
@@ -406,11 +407,11 @@ function GattIpServer() {
         return characteristic_db;
     }
 
-    function getDescriptorJsonFromCharacteristicObject(myCharacteristic){
+    function getDescriptorJsonFromCharacteristicObject(myCharacteristic) {
         var descriptor_db = {};
 
-        if(myCharacteristic && myCharacteristic.descriptors){
-            for(var uuid in myCharacteristic.descriptors){
+        if (myCharacteristic && myCharacteristic.descriptors) {
+            for (var uuid in myCharacteristic.descriptors) {
                 var temp_descriptor = {};
                 temp_descriptor[C.kDescriptorUUID] = uuid;
                 temp_descriptor[C.kValue] = myCharacteristic.descriptors[uuid].value;
@@ -424,7 +425,7 @@ function GattIpServer() {
         return descriptor_db;
     }
 
-    this.addPeripheral = function (name, uuid, addr, rssi, addata, scanData) {
+    this.addPeripheral = function(name, uuid, addr, rssi, addata, scanData) {
         var peripheral = new Peripheral(this, name, uuid, addr, rssi, addata, scanData);
         this.peripherals[peripheral.uuid] = peripheral;
 
