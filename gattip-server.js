@@ -362,6 +362,10 @@ function GattIpServer() {
             this.onerror("not connected");
             return;
         }
+        if(server.readyState !== 1) {
+            console.log('Socket is CLOSED');
+            return;
+        }
         server.send(mesg);
     };
 

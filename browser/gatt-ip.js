@@ -13,10 +13,10 @@ function GATTIP() {
 
         if (callback) this.oninit = callback;
 
-        var socket = new WebSocket(url);
+        this.socket = new WebSocket(url);
 
-        socket.onopen = function() {
-            this.initWithClient(socket);
+        this.socket.onopen = function() {
+            this.initWithClient(this.socket);
             if (this.oninit) {
                 this.oninit();
             }
@@ -97,143 +97,81 @@ function GATTIP() {
                 this.onconnect(peripheral, response.error);
                 break;
             case C.kDisconnect:
-                if (!response.error) {
-                    try {
-                        gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                        gObject.peripheral.ondisconnect(response.error);
-                        this.ondisconnect(gObject.peripheral, response.error);
-                    } catch (ex) {
-                        this.onerror(ex);
-                    }
-                } else {
-                    gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    peripheral = (gObject && gObject.peripheral) ? (gObject.peripheral) : peripheral;
-                    this.ondisconnect(peripheral, response.error);
+                gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);            
+                if(gObject.peripheral){
+                    gObject.peripheral.ondisconnect(response.error);
                 }
+                this.ondisconnect(gObject.peripheral, response.error);
                 break;
             case C.kCentralState:
                 this.state = response.params[C.kState];
                 this.onstate(response.params[C.kState], response.error);
                 break;
             case C.kGetServices:
-                if (!response.error) {
-                    try {
-                        gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                        gObject.peripheral.ondiscoverServices(response.params, response.error);
-                        this.ondiscoverServices(gObject.peripheral, response.error);
-                    } catch (ex) {
-                        this.onerror(ex);
-                    }
-                } else {
-                    this.ondiscoverServices(peripheral, response.error);
+                gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
+                if(gObject.peripheral){
+                    gObject.peripheral.ondiscoverServices(response.params, response.error);
                 }
+                this.ondiscoverServices(gObject.peripheral, response.error);
                 break;
             case C.kGetCharacteristics:
-                if (!response.error) {
-                    try {
-                        gObject = this.getObjects('S', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                        gObject.service.ondiscoverCharacteristics(response.params, response.error);
-                        this.ondiscoverCharacteristics(gObject.peripheral, gObject.service, response.error);
-                    } catch (ex) {
-                        this.onerror(ex);
-                    }
-                } else {
-                    this.ondiscoverCharacteristics(peripheral, service, response.error);
+                gObject = this.getObjects('S', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
+                if(gObject.service){
+                    gObject.service.ondiscoverCharacteristics(response.params, response.error);
                 }
+                this.ondiscoverCharacteristics(gObject.peripheral, gObject.service, response.error);
                 break;
             case C.kGetDescriptors:
-                if (!response.error) {
-                    try {
-                        gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                        gObject.characteristic.ondiscoverDescriptors(response.params, response.error);
-                        this.ondiscoverDescriptors(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
-                    } catch (ex) {
-                        this.onerror(ex);
-                    }
-                } else {
-                    this.ondiscoverDescriptors(peripheral, service, characteristic, response.error);
+                gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
+                if(gObject.characteristic){
+                    gObject.characteristic.ondiscoverDescriptors(response.params, response.error);
                 }
+                this.ondiscoverDescriptors(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
                 break;
             case C.kGetCharacteristicValue:
-                if (!response.error) {
-                    try {
-                        gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                        gObject.characteristic.onread(response.params, response.error);
-                        this.onupdateValue(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
-                    } catch (ex) {
-                        this.onerror(ex);
-                    }
-                } else {
-                    this.onupdateValue(peripheral, service, characteristic, response.error);
+                gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
+                if(gObject.characteristic){
+                    gObject.characteristic.onread(response.params, response.error);
                 }
+                this.onupdateValue(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
                 break;
             case C.kWriteCharacteristicValue:
-                if (!response.error) {
-                    try {
-                        gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                        gObject.characteristic.onwrite(response.params, response.error);
-                        this.onwriteValue(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
-                    } catch (ex) {
-                        this.onerror(ex);
-                    }
-                } else {
-                    this.onwriteValue(peripheral, service, characteristic, response.error);
+                gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
+                if(gObject.characteristic){
+                    gObject.characteristic.onwrite(response.params, response.error);
                 }
+                this.onwriteValue(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
                 break;
             case C.kSetValueNotification:
-                if (!response.error) {
-                    try {
-                        gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                        gObject.characteristic.isNotifying = response.params[C.kIsNotifying];
-                        gObject.characteristic.value = response.params[C.kValue];
-                        this.onupdateValue(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
-                    } catch (ex) {
-                        this.onerror(ex);
-                    }
-                } else {
-                    this.onupdateValue(peripheral, service, characteristic, response.error);
+                gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
+                if(gObject.characteristic){
+                    gObject.characteristic.isNotifying = response.params[C.kIsNotifying];
+                    gObject.characteristic.value = response.params[C.kValue];
                 }
+                this.onupdateValue(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
                 break;
             case C.kGetDescriptorValue:
-                if (!response.error) {
-                    try {
-                        gObject = this.getObjects('D', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                        gObject.descriptor.onread(response.params, response.error);
-                        this.onDescriptorRead(gObject.peripheral, gObject.service, gObject.characteristic, gObject.descriptor, response.error);
-                    } catch (ex) {
-                        this.onerror(ex);
-                    }
-                } else {
-                    this.onDescriptorRead(peripheral, service, characteristic, descriptor, response.error);
+                gObject = this.getObjects('D', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
+                if(gObject.descriptor){
+                    gObject.descriptor.onread(response.params, response.error);
                 }
+                this.onDescriptorRead(gObject.peripheral, gObject.service, gObject.characteristic, gObject.descriptor, response.error);
                 break;
             case C.kGetRSSI:
                 gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                if (!response.error) {
-                    try {
-                        gObject.peripheral.name = response.params[C.kPeripheralName];
-                        gObject.peripheral.rssi = response.params[C.kRSSIkey];
-                        this.onupdateRSSI(gObject.peripheral, response.error);
-                    } catch (ex) {
-                        this.onerror(ex);
-                    }
-                } else {
-                    this.onupdateRSSI(peripheral, response.error);
+                if(gObject.peripheral){
+                    gObject.peripheral.name = response.params[C.kPeripheralName];
+                    gObject.peripheral.rssi = response.params[C.kRSSIkey];
                 }
+                this.onupdateRSSI(gObject.peripheral, response.error);
                 break;
             case C.kPeripheralNameUpdate:
                 gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                if (!response.error) {
-                    try {
-                        gObject.peripheral.name = response.params[C.kPeripheralName];
-                        gObject.peripheral.rssi = response.params[C.kRSSIkey];
-                        this.onupdateRSSI(gObject.peripheral, response.error);
-                    } catch (ex) {
-                        this.onerror(ex);
-                    }
-                } else {
-                    this.onupdateRSSI(peripheral, response.error);
+                if(gObject.peripheral){
+                    gObject.peripheral.name = response.params[C.kPeripheralName];
+                    gObject.peripheral.rssi = response.params[C.kRSSIkey];
                 }
+                this.onupdateRSSI(gObject.peripheral, response.error);
                 break;
             case C.kMessage:
                 this.onMessage(response.params, response.error);
@@ -266,20 +204,24 @@ function GATTIP() {
                     }
                     resultObj.descriptor = resultObj.characteristic.descriptors[descriptorUUID];
                     if (resultObj.descriptor) {
-                        return resultObj;
+                        if (type === 'D') {
+                            return resultObj;
+                        }else{
+                            console.log('getObjects: Type is not mentioned');
+                        }
                     } else {
-                        throw Error('Descriptor not found');
+                        this.onerror('Descriptor not found');
                     }
                 } else {
-                    throw Error('Characteristic not found');
+                    this.onerror('Characteristic not found');
                 }
             } else {
-                throw Error('Service not found');
+                this.onerror('Service not found');
             }
         } else {
-            throw Error('Peripheral not found');
+            this.onerror('Peripheral not found');
         }
-
+        return resultObj;
     };
 
     this.oninit = function(params) {};
@@ -353,7 +295,10 @@ function GATTIP() {
             this.onerror("not connected");
             return;
         }
-
+        if(client.readyState !== 1) {
+            console.log('Socket is CLOSED');
+            return;
+        }
         client.send(mesg);
     };
 }
