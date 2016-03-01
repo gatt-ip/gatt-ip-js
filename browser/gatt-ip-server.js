@@ -218,19 +218,19 @@ function GattIpServer() {
                     if (resultObj.descriptor) {
                         return resultObj;
                     } else {
-                        this.sendErrorResponse(message.method, C.kErrorDescriptorNotFound);
+                        this.sendErrorResponse(message.method, C.kErrorDescriptorNotFound, 'Descriptor not found');
                         throw Error('Descriptor not found');
                     }
                 } else {
-                    this.sendErrorResponse(message.method, C.kErrorCharacteristicNotFound);
+                    this.sendErrorResponse(message.method, C.kErrorCharacteristicNotFound, 'Characteristic not found');
                     throw Error('Characteristic not found');
                 }
             } else {
-                this.sendErrorResponse(message.method, C.kErrorServiceNotFound);
+                this.sendErrorResponse(message.method, C.kErrorServiceNotFound, 'Service not found');
                 throw Error('Service not found');
             }
         } else {
-            this.sendErrorResponse(message.method, C.kErrorPeripheralNotFound);
+            this.sendErrorResponse(message.method, C.kErrorPeripheralNotFound, 'Peripheral not found');
             throw Error('Peripheral not found');
         }
 
@@ -1123,7 +1123,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
     this.respondToReadRequest = function (error) {
 
         if (error) {
-            this.errorRequest(C.kGetCharacteristicValue);
+            this.sendErrorResponse(C.kGetCharacteristicValue, C.kError32603, 'Failed to read the Characteristic value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -1139,7 +1139,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
     this.respondToWriteRequest = function (error) {
 
         if (error) {
-            this.errorRequest(C.kWriteCharacteristicValue);
+            this.sendErrorResponse(C.kWriteCharacteristicValue, C.kError32603, 'Failed to write the Characteristic value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -1259,7 +1259,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
     this.respondToReadDescriptorValueRequest = function (error) {
 
         if (error) {
-            this.errorRequest(C.kGetDescriptorValue);
+            this.sendErrorResponse(C.kGetDescriptorValue, C.kError32603, 'Failed to read the descriptor value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -1276,7 +1276,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
     this.respondToWriteDescriptorValueRequest = function (error) {
 
         if (error) {
-            this.errorRequest(C.kWriteDescriptorValue);
+            this.sendErrorResponse(C.kWriteDescriptorValue, C.kError32603, 'Failed to write the descriptor value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;

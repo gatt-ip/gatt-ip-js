@@ -61,7 +61,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
     this.respondToReadDescriptorValueRequest = function (error) {
 
         if (error) {
-            this.errorRequest(C.kGetDescriptorValue);
+            this.sendErrorResponse(C.kGetDescriptorValue, C.kError32603, 'Failed to read the descriptor value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -78,7 +78,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
     this.respondToWriteDescriptorValueRequest = function (error) {
 
         if (error) {
-            this.errorRequest(C.kWriteDescriptorValue);
+            this.sendErrorResponse(C.kWriteDescriptorValue, C.kError32603, 'Failed to write the descriptor value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;

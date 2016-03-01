@@ -186,7 +186,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
     this.respondToReadRequest = function (error) {
 
         if (error) {
-            this.errorRequest(C.kGetCharacteristicValue);
+            this.sendErrorResponse(C.kGetCharacteristicValue, C.kError32603, 'Failed to read the Characteristic value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -202,7 +202,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
     this.respondToWriteRequest = function (error) {
 
         if (error) {
-            this.errorRequest(C.kWriteCharacteristicValue);
+            this.sendErrorResponse(C.kWriteCharacteristicValue, C.kError32603, 'Failed to write the Characteristic value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;

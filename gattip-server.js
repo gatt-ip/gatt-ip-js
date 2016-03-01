@@ -218,19 +218,19 @@ function GattIpServer() {
                     if (resultObj.descriptor) {
                         return resultObj;
                     } else {
-                        this.sendErrorResponse(message.method, C.kErrorDescriptorNotFound);
+                        this.sendErrorResponse(message.method, C.kErrorDescriptorNotFound, 'Descriptor not found');
                         throw Error('Descriptor not found');
                     }
                 } else {
-                    this.sendErrorResponse(message.method, C.kErrorCharacteristicNotFound);
+                    this.sendErrorResponse(message.method, C.kErrorCharacteristicNotFound, 'Characteristic not found');
                     throw Error('Characteristic not found');
                 }
             } else {
-                this.sendErrorResponse(message.method, C.kErrorServiceNotFound);
+                this.sendErrorResponse(message.method, C.kErrorServiceNotFound, 'Service not found');
                 throw Error('Service not found');
             }
         } else {
-            this.sendErrorResponse(message.method, C.kErrorPeripheralNotFound);
+            this.sendErrorResponse(message.method, C.kErrorPeripheralNotFound, 'Peripheral not found');
             throw Error('Peripheral not found');
         }
 
