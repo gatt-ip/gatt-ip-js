@@ -37,9 +37,22 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
     };
 
     this.onread = function (params) {
-        _characteristic.characteristicName = params[C.kValue];
         this.isNotifying = params[C.kIsNotifying];
         this.value = params[C.kValue];
+    };
+
+    this.write = function (data, callback) {
+        if (callback) this.onwrite = callback;
+        var params = {};
+        params[C.kPeripheralUUID] = _peripheral.uuid;
+        params[C.kServiceUUID] = _service.uuid;
+        params[C.kCharacteristicUUID] = _characteristic.uuid;
+        params[C.kDescriptorUUID] = this.uuid
+        params[C.kValue] = data;
+        _gattip.write(C.kWriteDescriptorValue, params);
+    };
+
+    this.onwrite = function (params) {
     };
 
     this.readDescriptorValueRequest = function (params) {

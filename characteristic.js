@@ -1,7 +1,7 @@
 function Characteristic(gattip, peripheral, service, uuid) {
     if (typeof process === 'object' && process + '' === '[object process]') {
         C = require("./constants.js").C;
-        Descriptor = require("./discriptor.js").Descriptor;
+        Descriptor = require("./descriptor.js").Descriptor;
     }
 
     var _gattip = gattip;
@@ -90,7 +90,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
     };
 
     this.writeWithResType = function (data, restype, callback) {
-        if (callback) this.onread = callback;
+        if (callback) this.onwrite = callback;
 
         var params = {};
         params[C.kPeripheralUUID] = _peripheral.uuid;

@@ -70,14 +70,6 @@ function GATTIP() {
                                     characteristic = service.characteristics[cuuid];
                                     if (characteristic) {
                                         characteristic.ondiscoverDescriptors(response.params[C.kServices][service.uuid][C.kCharacteristics][cuuid], response.error);
-                                        //To get the Characteristic name, reading the descriptor value
-                                        for (var duuid in characteristic.descriptors) {
-                                            descriptor = characteristic.descriptors[duuid];
-                                            var charcNameDescUUID = '2901';
-                                            if (descriptor && (duuid.indexOf(charcNameDescUUID) > -1) && descriptor.properties.Read) {
-                                                descriptor.read();
-                                            }
-                                        }
                                     } else {
                                         this.onerror("Characteristic not found");
                                     }
@@ -171,7 +163,15 @@ function GATTIP() {
                         gObject.descriptor.onread(response.params, response.error);
                     }
                 }
-                this.onDescriptorRead(gObject.peripheral, gObject.service, gObject.characteristic, gObject.descriptor, response.error);
+                this.ondescriptorRead(gObject.peripheral, gObject.service, gObject.characteristic, gObject.descriptor, response.error);
+            case C.kWriteDescriptorValue:
+                if(response.params){
+                    gObject = this.getObjects('D', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
+                    if(gObject.descriptor){
+                        gObject.descriptor.onwrite(response.params, response.error);
+                    }
+                }
+                this.ondescriptorWrite(gObject.peripheral, gObject.service, gObject.characteristic, gObject.descriptor, response.error);                
                 break;
             case C.kGetRSSI:
                 if(response.params){
@@ -298,8 +298,10 @@ function GATTIP() {
 
     this.onclose = function(params, error) {};
 
-    this.onDescriptorRead = function(peripheral, service, characteristic, descriptor, error) {};
+    this.ondescriptorRead = function(peripheral, service, characteristic, descriptor, error) {};
 
+    this.ondescriptorWrite = function(peripheral, service, characteristic, descriptor, error) {};
+    
     this.write = function(method, params, id) {
         var mesg = {};
         mesg.jsonrpc = "2.0";

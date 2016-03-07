@@ -1,6 +1,6 @@
 {
   "name": "gatt-ip-js",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "homepage": "https://github.com/gatt-ip/gatt-ip-js",
   "main": "index.js",
   "authors": [
@@ -24,7 +24,7 @@
     "package.json",
     "characteristic.js",
     "constants.js",
-    "discriptor.js",
+    "descriptor.js",
     "gattip-server.js",
     "gattip.js",
     "peripheral.js",

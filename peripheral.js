@@ -77,22 +77,8 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
     this.connect = function (callback) {
         if (callback) this.onconnect = callback;
 
-        $.getJSON(path + "bleServices.json", function(res) {
-            self.serviceNames = res;
-            $.getJSON(path + "bleCharacteristics.json", function (res) {
-                self.characteristicNames = res;
-                $.getJSON(path + "bleDescriptors.json", function (res) {
-                    self.descriptorNames = res;
-                    var params = {};
-                    params[C.kPeripheralUUID] = self.uuid;
-                    _gattip.write(C.kConnect, params);
-                });
-            });
-        });
-    };
-
-    this.onconnect = function (error) {
-        /*if (typeof $ === 'undefined') {
+        // TODO: Loading the JSON's for UUID names
+        /* if (typeof $ === 'undefined') {
             $ = {
                 getJSON : function (path, callback) {
                     var f = module.filename;
@@ -101,8 +87,25 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
                     callback(json);
                 }
             }
-        }*/
+        } */
 
+        /* $.getJSON(path + "bleServices.json", function(res) {
+            self.serviceNames = res;
+            $.getJSON(path + "bleCharacteristics.json", function (res) {
+                self.characteristicNames = res;
+                $.getJSON(path + "bleDescriptors.json", function (res) {
+                    self.descriptorNames = res;
+                    
+                });
+            });
+        }); */
+
+        var params = {};
+        params[C.kPeripheralUUID] = self.uuid;
+        _gattip.write(C.kConnect, params);
+    };
+
+    this.onconnect = function (error) {
         if (!error) {
             this.isConnected = true;
         }

@@ -239,7 +239,7 @@ function GattIpServer() {
     this.sendErrorResponse = function(method, errorId, errMessage) {
         var error = {};
         params = {};
-        error[C.kIdField] = errorId;
+        error[C.kCode] = errorId;
         error[C.kMessageField] = errMessage;
         params[C.kError] = error;
         this.write(method, undefined, undefined, error);
