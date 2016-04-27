@@ -313,28 +313,23 @@ function GattIpServer() {
         return JSON.stringify(obj) === JSON.stringify({});
     }
 
-    this.scanResponse = function (cookie, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serData) {
+    this.scanResponse = function (cookie, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, svcData) {
         params = {};
-        var manufactData = [];
-        var serviceData = [];
+        var manufactData;
+        var serviceData;
 
         if(!isEmpty(mfrData)) {
-            for (var k = 0; k < mfrData.length; k++) {
-                var mObj = {};
-                var mafrDataObj = mfrData[k];
-                mObj.id = dec2hex(mafrDataObj.id);
-                mObj.value = arrayAsHex(mafrDataObj.value);
-                if(!(/^0*$/.test(mObj.value)))
-                    manufactData.push(mObj);
+            manufactData = {};
+            for (var mk in mfrData) {
+                var mkey = mk.toUpperCase();
+                manufactData[mkey] = arrayAsHex(mfrData[mk]).toUpperCase();
             }
         }
-        if(!isEmpty(serData)) {
-            for (var j = 0; j < serData.length; j++) {
-                var sObj = {};
-                var serDataObj = serData[j];
-                sObj.id = serDataObj.id;
-                sObj.value = arrayAsHex(serDataObj.value);
-                serviceData.push(sObj);
+        if(!isEmpty(svcData)) {
+            serviceData = {};
+            for (var sk in svcData) {
+                var skey = sk.toUpperCase();
+                serviceData[skey] = arrayAsHex(svcData[sk]).toUpperCase();
             }
         }
 
@@ -343,7 +338,7 @@ function GattIpServer() {
         params[C.kPeripheralBtAddress] = addr;
         params[C.kRSSIkey] = rssi;
         params[C.kCBAdvertisementDataTxPowerLevel] = txPwr;
-        params[C.kCBAdvertisementDataServiceUUIDsKey] = serviceUUIDs;
+        params[C.kCBAdvertisementDataServiceUUIDsKey] = ((serviceUUIDs && serviceUUIDs.length > 0) ? serviceUUIDs : undefined);
         params[C.kCBAdvertisementDataManufacturerDataKey] = manufactData;
         params[C.kCBAdvertisementDataServiceDataKey] = serviceData;
 

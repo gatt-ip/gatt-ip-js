@@ -46,22 +46,24 @@ function Characteristic(gattip, peripheral, service, uuid) {
     };
 
     this.ondiscoverDescriptors = function (params) {
-        for (var index in params[C.kDescriptors]) {
-            var descriptorUUID = params[C.kDescriptors][index][C.kDescriptorUUID];
-            var descriptor = this.descriptors[descriptorUUID];
-            if (!descriptor) {
-                descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
-            }
-            
-            var props = params[C.kDescriptors][index][C.kProperties];
-            for (var apindex in C.AllProperties) {
-                descriptor.properties[C.AllProperties[apindex]] = {
-                    enabled: (props >> apindex) & 1,
-                    name: C.AllProperties[apindex]
-                };
-            }
+        if(typeof params[C.kDescriptors] !== 'undefined'){
+            for (var index in params[C.kDescriptors]) {
+                var descriptorUUID = params[C.kDescriptors][index][C.kDescriptorUUID];
+                var descriptor = this.descriptors[descriptorUUID];
+                if (!descriptor) {
+                    descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
+                }
+                
+                var props = params[C.kDescriptors][index][C.kProperties];
+                for (var apindex in C.AllProperties) {
+                    descriptor.properties[C.AllProperties[apindex]] = {
+                        enabled: (props >> apindex) & 1,
+                        name: C.AllProperties[apindex]
+                    };
+                }
 
-            this.descriptors[descriptorUUID] = descriptor;
+                this.descriptors[descriptorUUID] = descriptor;
+            }
         }
     };
 

@@ -313,28 +313,23 @@ function GattIpServer() {
         return JSON.stringify(obj) === JSON.stringify({});
     }
 
-    this.scanResponse = function (cookie, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serData) {
+    this.scanResponse = function (cookie, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, svcData) {
         params = {};
-        var manufactData = [];
-        var serviceData = [];
+        var manufactData;
+        var serviceData;
 
         if(!isEmpty(mfrData)) {
-            for (var k = 0; k < mfrData.length; k++) {
-                var mObj = {};
-                var mafrDataObj = mfrData[k];
-                mObj.id = dec2hex(mafrDataObj.id);
-                mObj.value = arrayAsHex(mafrDataObj.value);
-                if(!(/^0*$/.test(mObj.value)))
-                    manufactData.push(mObj);
+            manufactData = {};
+            for (var mk in mfrData) {
+                var mkey = mk.toUpperCase();
+                manufactData[mkey] = arrayAsHex(mfrData[mk]).toUpperCase();
             }
         }
-        if(!isEmpty(serData)) {
-            for (var j = 0; j < serData.length; j++) {
-                var sObj = {};
-                var serDataObj = serData[j];
-                sObj.id = serDataObj.id;
-                sObj.value = arrayAsHex(serDataObj.value);
-                serviceData.push(sObj);
+        if(!isEmpty(svcData)) {
+            serviceData = {};
+            for (var sk in svcData) {
+                var skey = sk.toUpperCase();
+                serviceData[skey] = arrayAsHex(svcData[sk]).toUpperCase();
             }
         }
 
@@ -343,7 +338,7 @@ function GattIpServer() {
         params[C.kPeripheralBtAddress] = addr;
         params[C.kRSSIkey] = rssi;
         params[C.kCBAdvertisementDataTxPowerLevel] = txPwr;
-        params[C.kCBAdvertisementDataServiceUUIDsKey] = serviceUUIDs;
+        params[C.kCBAdvertisementDataServiceUUIDsKey] = ((serviceUUIDs && serviceUUIDs.length > 0) ? serviceUUIDs : undefined);
         params[C.kCBAdvertisementDataManufacturerDataKey] = manufactData;
         params[C.kCBAdvertisementDataServiceDataKey] = serviceData;
 
@@ -535,9 +530,8 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
     this.scanData = scanData;
     this.serviceUUIDs = [];
     if (addata)this.rawAdvertisingData = addata[C.kRawAdvertisementData];
-    this.manufacturerData = '';
-    this.manufacturerObj = '';
-    this.serviceData = '';    
+    this.manufacturerData = {};
+    this.serviceData = {};
     this.rssi = rssi;
     this.addr = addr;
     this.isConnected = false;
@@ -601,49 +595,33 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
 
     }
 
-    if( (typeof mfrData != 'undefined') && (Object.prototype.toString.call( mfrData ) === '[object Array]')){
-        this.manufacturerObj = mfrData;
-
-        var mfrValue = '';
-        for(var i = 0; i< mfrData.length; i++){
-            if(mfrData[i] && mfrData[i].value){
-                mfrValue = mfrValue + mfrData[i].value;
+    this.getManufacturerDataById = function(mfrId){
+        if ('number' === typeof mfrId) {
+            mfrId = '' + Number(mfrId).toString(16);
+            var prefix = '';
+            for (var i = mfrId.length; i < 4; i++) {
+                prefix+='0';
             }
+            mfrId = prefix + mfrId;
         }
-        this.manufacturerData = mfrValue;
+        return this.manufacturerData[mfrId];;
+    };
+
+    this.getServiceDataByUUID = function(serviceUUID){
+        return this.serviceData[serviceUUID];;
+    };
+
+    if( (typeof mfrData != 'undefined') && (Object.prototype.toString.call( mfrData ) === '[object Object]')){        
+        this.manufacturerData = mfrData;
     }
 
-    if( (typeof serviceData != 'undefined') && (Object.prototype.toString.call( serviceData ) === '[object Array]') ) {
+    if( (typeof serviceData != 'undefined') && (Object.prototype.toString.call( serviceData ) === '[object Object]') ) {
         this.serviceData = serviceData;
     }
 
     if( (typeof serviceUUIDs != 'undefined') && (Object.prototype.toString.call( serviceUUIDs ) === '[object Array]') ){
         this.serviceUUIDs = serviceUUIDs;
     }
-
-    this.getManufacturerDataById = function(mfrId){
-        var mfrData = undefined;
-        for (var i = 0; i < this.manufacturerObj.length; i++){
-            var mfrObj = this.manufacturerObj[i];
-            if(mfrObj.id === mfrId){
-                mfrData = mfrObj.value;
-                break;
-            }
-        }
-        return mfrData;
-    };
-
-    this.getServiceDataByUUID = function(serviceUUID){
-        var servData = undefined;
-        for (var i = 0; i < this.serviceData.length; i++){
-            var serObj = this.serviceData[i];
-            if(serObj.id === serviceUUID){
-                servData = serObj.value;
-                break;
-            }
-        }
-        return servData;
-    };
 
     this.connect = function (callback) {
         if (callback) this.onconnect = callback;
@@ -768,7 +746,6 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
         return service;
     };
 
-
     function getDiscoverable(peripheral) {
         var discoverableDataLength = parseInt(peripheral.advdata[0], 16);
         if (parseInt(peripheral.advdata[2], 16) >= 1) {
@@ -786,8 +763,13 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
 
     function getManufacturerData(peripheral) {
         var manufacturerDataLength = parseInt(peripheral.advdata[0], 16);
-        for (var k = 2; k <= manufacturerDataLength; k++) {
-            peripheral.manufacturerData += peripheral.advdata[k];
+        if(manufacturerDataLength > 2){
+            var mfrKey = peripheral.advdata[3] + peripheral.advdata[2];
+            var mfrData = '';
+            for (var k = 4; k <= manufacturerDataLength; k++) {
+                mfrData += peripheral.advdata[k];
+            }
+            peripheral.manufacturerData[mfrKey] = mfrData;
         }
         peripheral.advdata.splice(0, manufacturerDataLength + 1);
     }
@@ -1091,22 +1073,24 @@ function Characteristic(gattip, peripheral, service, uuid) {
     };
 
     this.ondiscoverDescriptors = function (params) {
-        for (var index in params[C.kDescriptors]) {
-            var descriptorUUID = params[C.kDescriptors][index][C.kDescriptorUUID];
-            var descriptor = this.descriptors[descriptorUUID];
-            if (!descriptor) {
-                descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
-            }
-            
-            var props = params[C.kDescriptors][index][C.kProperties];
-            for (var apindex in C.AllProperties) {
-                descriptor.properties[C.AllProperties[apindex]] = {
-                    enabled: (props >> apindex) & 1,
-                    name: C.AllProperties[apindex]
-                };
-            }
+        if(typeof params[C.kDescriptors] !== 'undefined'){
+            for (var index in params[C.kDescriptors]) {
+                var descriptorUUID = params[C.kDescriptors][index][C.kDescriptorUUID];
+                var descriptor = this.descriptors[descriptorUUID];
+                if (!descriptor) {
+                    descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
+                }
+                
+                var props = params[C.kDescriptors][index][C.kProperties];
+                for (var apindex in C.AllProperties) {
+                    descriptor.properties[C.AllProperties[apindex]] = {
+                        enabled: (props >> apindex) & 1,
+                        name: C.AllProperties[apindex]
+                    };
+                }
 
-            this.descriptors[descriptorUUID] = descriptor;
+                this.descriptors[descriptorUUID] = descriptor;
+            }
         }
     };
 
@@ -1488,13 +1472,13 @@ var C = {
     kScanOptionAllowDuplicatesKey: "b0",
     kScanOptionSolicitedServiceUUIDs: "b1",
     kAdvertisementDataKey: "b2",
-    kCBAdvertisementDataManufacturerDataKey: "b3",
-    kCBAdvertisementDataServiceUUIDsKey: "b4",
-    kCBAdvertisementDataServiceDataKey: "b5",
+    kCBAdvertisementDataManufacturerDataKey: "mfr",
+    kCBAdvertisementDataServiceUUIDsKey: "suu",
+    kCBAdvertisementDataServiceDataKey: "sdt",
     kCBAdvertisementDataOverflowServiceUUIDsKey: "b6",
     kCBAdvertisementDataSolicitedServiceUUIDsKey: "b7",
     kCBAdvertisementDataIsConnectable: "b8",
-    kCBAdvertisementDataTxPowerLevel: "b9",
+    kCBAdvertisementDataTxPowerLevel: "txp",
     kPeripheralBtAddress: "c1",
     kRawAdvertisementData: "c2",
     kScanRecord: "c3",
