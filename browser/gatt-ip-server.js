@@ -10,12 +10,12 @@ function GattIpServer() {
     this.state = C.kUnknown;
     this.peripherals = {};
 
-    this.init = function(url, callback) {
+    this.init = function (url, callback) {
         if (callback) this.oninit = callback;
 
         this.socket = new WebSocket(url);
 
-        this.socket.onopen = function() {
+        this.socket.onopen = function () {
             this.initWithServer(this.socket);
             if (this.oninit) {
                 this.oninit();
@@ -23,7 +23,7 @@ function GattIpServer() {
         }.bind(this);
     };
 
-    this.initWithServer = function(_server) {
+    this.initWithServer = function (_server) {
         server = _server;
 
         if (!server.send) {
@@ -32,23 +32,23 @@ function GattIpServer() {
         server.onmessage = this.processMessage.bind(this);
 
         if (!server.onclose) {
-            server.onclose = function() {
+            server.onclose = function () {
                 console.log('socket is closed')
             };
         }
         if (!server.onerror) {
-            server.onerror = function(error) {
+            server.onerror = function (error) {
                 console.log('socket is onerror, onerror' + error);
             };
         }
         if (!server.error) {
-            server.onerror = function(error) {
+            server.onerror = function (error) {
                 console.log('socket is error, error' + error);
             };
         }
     };
 
-    this.processMessage = function(mesg) {
+    this.processMessage = function (mesg) {
         var message = JSON.parse(mesg.data);
         var params, peripheral, service, characteristic, descriptor, gObject;
 
@@ -65,9 +65,11 @@ function GattIpServer() {
         }
 
         if (message.error) {
-            this.sendErrorResponse(message.method, C.kInvalidRequest, 'Error in the Request');
+            this.sendErrorResponse(undefined, message.method, C.kInvalidRequest, 'Error in the Request');
             return;
         }
+
+        var cookie = {id : message.id, session_id : message.session_id};
 
         //TODO: It is better to remove the devices, if length is going to infinite, based on like recently used..
         //TODO: General comment - you should not be tracking peripherals/services/etc.
@@ -87,37 +89,37 @@ function GattIpServer() {
         //TODO: Consider putting this in an associative array, rather than a switch
         switch (message.method) {
             case C.kConfigure:
-                this.configureRequest(message.params);
+                this.configureRequest(cookie, message.params);
                 break;
             case C.kScanForPeripherals:
-                this.scanRequest(message.params);
+                this.scanRequest(cookie, message.params);
                 break;
             case C.kStopScanning:
-                this.stopScanRequest(message.params);
+                this.stopScanRequest(cookie, message.params);
                 break;
             case C.kConnect:
                 try {
-                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
-                    this.connectRequest(gObject.peripheral);
+                    gObject = this.getObjects(cookie, 'P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
+                    this.connectRequest(cookie, gObject.peripheral);
                 } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kDisconnect:
                 try {
-                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
-                    this.disconnectRequest(gObject.peripheral);
+                    gObject = this.getObjects(cookie, 'P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
+                    this.disconnectRequest(cookie, gObject.peripheral);
                 } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kCentralState:
-                this.centralStateRequest(message.params);
+                this.centralStateRequest(cookie, message.params);
                 break;
             case C.kGetServices:
                 try {
-                    gObject = this.getObjects('P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
-                    gObject.peripheral.discoverServicesRequest();
+                    gObject = this.getObjects(cookie, 'P', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
+                    gObject.peripheral.discoverServicesRequest(cookie);
                 } catch (ex) {
                     console.error(ex);
                 }
@@ -130,57 +132,57 @@ function GattIpServer() {
                 break;
             case C.kGetCharacteristics:
                 try {
-                    gObject = this.getObjects('S', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
-                    gObject.service.discoverCharacteristicsRequest();
+                    gObject = this.getObjects(cookie, 'S', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
+                    gObject.service.discoverCharacteristicsRequest(cookie);
                 } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kGetDescriptors:
                 try {
-                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
-                    gObject.characteristic.discoverDescriptorsRequest();
+                    gObject = this.getObjects(cookie, 'C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
+                    gObject.characteristic.discoverDescriptorsRequest(cookie);
                 } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kGetCharacteristicValue:
                 try {
-                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
-                    gObject.characteristic.readCharacteristicValueRequest(message.params);
+                    gObject = this.getObjects(cookie, 'C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
+                    gObject.characteristic.readCharacteristicValueRequest(cookie, message.params);
                 } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kWriteCharacteristicValue:
                 try {
-                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
-                    gObject.characteristic.writeCharacteristicValueRequest(message.params);
+                    gObject = this.getObjects(cookie, 'C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
+                    gObject.characteristic.writeCharacteristicValueRequest(cookie, message.params);
                 } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kSetValueNotification:
                 try {
-                    gObject = this.getObjects('C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
+                    gObject = this.getObjects(cookie, 'C', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
                     gObject.characteristic.isNotifying = message.params[C.kValue];
-                    gObject.characteristic.enableNotificationsRequest(message.params);
+                    gObject.characteristic.enableNotificationsRequest(cookie, message.params);
                 } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kGetDescriptorValue:
                 try {
-                    gObject = this.getObjects('D', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
-                    gObject.descriptor.readDescriptorValueRequest(message.params);
+                    gObject = this.getObjects(cookie, 'D', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
+                    gObject.descriptor.readDescriptorValueRequest(cookie, message.params);
                 } catch (ex) {
                     console.error(ex);
                 }
                 break;
             case C.kWriteDescriptorValue:
                 try {
-                    gObject = this.getObjects('D', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
-                    gObject.descriptor.writeDescriptorValueRequest(message.params);
+                    gObject = this.getObjects(cookie, 'D', message.params[C.kPeripheralUUID], message.params[C.kServiceUUID], message.params[C.kCharacteristicUUID], message.params[C.kDescriptorUUID]);
+                    gObject.descriptor.writeDescriptorValueRequest(cookie, message.params);
                 } catch (ex) {
                     console.error(ex);
                 }
@@ -188,14 +190,14 @@ function GattIpServer() {
 
             default:
                 console.log('invalid request' + message.method);
-                this.sendErrorResponse(message.method, C.kInvalidRequest, 'Request not handled by server');
+                this.sendErrorResponse(cookie, message.method, C.kInvalidRequest, 'Request not handled by server');
                 return;
         }
         this.message = message;
     };
 
 
-    this.getObjects = function(type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
+    this.getObjects = function (cookie, type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
 
         var resultObj = {};
 
@@ -218,103 +220,154 @@ function GattIpServer() {
                     if (resultObj.descriptor) {
                         return resultObj;
                     } else {
-                        this.sendErrorResponse(message.method, C.kErrorDescriptorNotFound, 'Descriptor not found');
+                        this.sendErrorResponse(cookie, message.method, C.kErrorDescriptorNotFound, 'Descriptor not found');
                         throw Error('Descriptor not found');
                     }
                 } else {
-                    this.sendErrorResponse(message.method, C.kErrorCharacteristicNotFound, 'Characteristic not found');
+                    this.sendErrorResponse(cookie, message.method, C.kErrorCharacteristicNotFound, 'Characteristic not found');
                     throw Error('Characteristic not found');
                 }
             } else {
-                this.sendErrorResponse(message.method, C.kErrorServiceNotFound, 'Service not found');
+                this.sendErrorResponse(cookie, message.method, C.kErrorServiceNotFound, 'Service not found');
                 throw Error('Service not found');
             }
         } else {
-            this.sendErrorResponse(message.method, C.kErrorPeripheralNotFound, 'Peripheral not found');
+            this.sendErrorResponse(cookie, message.method, C.kErrorPeripheralNotFound, 'Peripheral not found');
             throw Error('Peripheral not found');
         }
 
     };
 
-    this.sendErrorResponse = function(method, errorId, errMessage) {
+    this.sendErrorResponse = function (cookie, method, errorId, errMessage) {
         var error = {};
         params = {};
         error[C.kCode] = errorId;
         error[C.kMessageField] = errMessage;
         params[C.kError] = error;
-        this.write(method, undefined, undefined, error);
+        this.write(method, undefined, cookie, error);
     };
 
-    this.authenticate = function(token) {
+    this.authenticate = function (token) {
         this.send(JSON.stringify({
             type: C.authenticate,
             access_token: token
         }));
     };
 
-    this.configureRequest = function() {
+    this.configureRequest = function () {
         console.error('configureRequest method not implemented by server');
     };
 
-    this.configureResponse = function(error) {
+    this.configureResponse = function (cookie, error) {
         if (!error) {
-            this.write(C.kConfigure);
+            this.write(C.kConfigure, undefined, cookie);
         } else {
-            this.write(C.kConfigure, error);
+            this.sendErrorResponse(cookie, C.kConfigure, error);
         }
     };
 
-    this.centralStateRequest = function() {
+    this.centralStateRequest = function () {
         console.error('centralStateRequest method not implemented by server');
     };
 
-    this.centralStateResponse = function(state, error) {
+    this.centralStateResponse = function (cookie, state, error) {
         if (!error) {
             params = {};
             params[C.kState] = state;
-            this.write(C.kCentralState, params);
+            this.write(C.kCentralState, params, cookie);
         } else {
-            this.write(C.kCentralState, error);
+            this.write(C.kCentralState, params, cookie, error);
         }
     };
 
-    this.scanRequest = function() {
+    this.scanRequest = function () {
         console.error('scanRequest method not implemented by server');
     };
 
-    this.scanResponse = function(name, uuid, addr, rssi, advertisementData, manufacturerData) {
-        params = {};
-        var advData = {};
+    function arrayAsHex (array, pretty) {
+        var ret = (pretty ? '0x' : '');
+        for (var i in array) {
+            var value = (array[i] & 0xFF).toString(16);
+            if (value.length == 1) {
+                value = '0' + value;
+            }
+            ret += value;
+        }
+        return ret;
+    }
 
-        advData[C.kRawAdvertisementData] = advertisementData;
+    function dec2hex(d) {
+        var hex = Number(d).toString(16);
+        while (hex.length < 2) {
+            hex = '0' + hex;
+        }
+        return hex;
+    }
+
+    function isEmpty(obj) {
+        for(var prop in obj) {
+            if(obj.hasOwnProperty(prop))
+                return false;
+        }
+
+        return JSON.stringify(obj) === JSON.stringify({});
+    }
+
+    this.scanResponse = function (cookie, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serData) {
+        params = {};
+        var manufactData = [];
+        var serviceData = [];
+
+        if(!isEmpty(mfrData)) {
+            for (var k = 0; k < mfrData.length; k++) {
+                var mObj = {};
+                var mafrDataObj = mfrData[k];
+                mObj.id = dec2hex(mafrDataObj.id);
+                mObj.value = arrayAsHex(mafrDataObj.value);
+                if(!(/^0*$/.test(mObj.value)))
+                    manufactData.push(mObj);
+            }
+        }
+        if(!isEmpty(serData)) {
+            for (var j = 0; j < serData.length; j++) {
+                var sObj = {};
+                var serDataObj = serData[j];
+                sObj.id = serDataObj.id;
+                sObj.value = arrayAsHex(serDataObj.value);
+                serviceData.push(sObj);
+            }
+        }
+
         params[C.kPeripheralName] = name;
         params[C.kPeripheralUUID] = uuid;
         params[C.kPeripheralBtAddress] = addr;
         params[C.kRSSIkey] = rssi;
-        params[C.kAdvertisementDataKey] = advData;
-        params[C.kScanRecord] = manufacturerData;
+        params[C.kCBAdvertisementDataTxPowerLevel] = txPwr;
+        params[C.kCBAdvertisementDataServiceUUIDsKey] = serviceUUIDs;
+        params[C.kCBAdvertisementDataManufacturerDataKey] = manufactData;
+        params[C.kCBAdvertisementDataServiceDataKey] = serviceData;
 
-        this.write(C.kScanForPeripherals, params);
+        this.write(C.kScanForPeripherals, params, cookie);
     };
 
-    this.stopScanRequest = function() {
+    this.stopScanRequest = function () {
         console.error('stopScanRequest method not implemented by server');
     };
 
-    this.stopScanResponse = function(error) {
+    this.stopScanResponse = function (cookie, error) {
         if (!error) {
-            this.write(C.kStopScanning);
+            this.write(C.kStopScanning, undefined, cookie);
         } else {
-            this.write(C.kStopScanning, error);
+            this.sendErrorResponse(cookie, C.kStopScanning, error);
         }
 
     };
 
-    this.connectRequest = function() {
+    this.connectRequest = function () {
         console.error('connectRequest method not implemented by server');
     };
 
-    this.connectResponse = function(peripheral, error) {
+    this.connectResponse = function (cookie, peripheral, error) {
         var peripheral_db = {};
         peripheral_db[C.kPeripheralUUID] = peripheral.uuid;
         peripheral_db[C.kPeripheralName] = peripheral.name;
@@ -324,17 +377,17 @@ function GattIpServer() {
         peripheral_db[C.kServices] = service_db;
 
         if (!error) {
-            this.write(C.kConnect, peripheral_db);
+            this.write(C.kConnect, peripheral_db, cookie);
         } else {
-            this.write(C.kConnect, error);
+            this.sendErrorResponse(cookie, C.kConnect, error);
         }
     };
 
-    this.disconnectRequest = function() {
+    this.disconnectRequest = function () {
         console.error('disconnectRequest method not implemented by server');
     };
 
-    this.disconnectResponse = function(peripheral, error) {
+    this.disconnectResponse = function (peripheral, error) {
         if (!error) {
             params = {};
             params[C.kPeripheralUUID] = peripheral.uuid;
@@ -346,30 +399,32 @@ function GattIpServer() {
         }
     };
 
-    this.write = function(result, params, id, error) {
+    this.write = function (result, params, cookie, error) {
         var mesg = {};
         mesg.jsonrpc = "2.0";
         mesg.result = result;
         mesg.params = params;
         mesg.error = error;
-        mesg.id = C.id.toString();
-        C.id += 1;
+        if(cookie){
+            mesg.id = cookie.id;
+            mesg.session_id = cookie.session_id;
+        }
         this.send(JSON.stringify(mesg));
     };
 
-    this.send = function(mesg) {
+    this.send = function (mesg) {
         if (!server) {
             this.onerror("not connected");
             return;
         }
-        if(server.readyState !== 1) {
+        if (server.readyState !== 1) {
             console.log('Socket is CLOSED');
             return;
         }
         server.send(mesg);
     };
 
-    this.close = function(callback) {
+    this.close = function (callback) {
         if (server) {
             server.close();
         }
@@ -429,8 +484,8 @@ function GattIpServer() {
         return descriptor_db;
     }
 
-    this.addPeripheral = function(name, uuid, addr, rssi, addata, scanData) {
-        var peripheral = new Peripheral(this, name, uuid, addr, rssi, addata, scanData);
+    this.addPeripheral = function (name, uuid, addr, rssi, txPower, serviceUUIDs, addata, serviceData) {
+        var peripheral = new Peripheral(this, name, uuid, addr, rssi, txPower, serviceUUIDs, addata, serviceData);
         this.peripherals[peripheral.uuid] = peripheral;
 
         return peripheral;
@@ -465,7 +520,7 @@ function GattIpServer() {
 if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== 'undefined')) {
     exports.GattIpServer = GattIpServer;
 }
-function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
+function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData)  {
     var path = "lib/gatt-ip-js/browser/"; // Replace the path to json configuration file.
 
     if (typeof process === 'object' && process + '' === '[object process]') {
@@ -478,13 +533,16 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
     this.uuid = uuid;
     this.advertisementData = addata;
     this.scanData = scanData;
-    this.serviceUUIDs = {};
+    this.serviceUUIDs = [];
     if (addata)this.rawAdvertisingData = addata[C.kRawAdvertisementData];
     this.manufacturerData = '';
+    this.manufacturerObj = '';
+    this.serviceData = '';    
     this.rssi = rssi;
     this.addr = addr;
     this.isConnected = false;
     this.services = {};
+    this.txpowerLevel = txPwr;
 
     this.serviceNames;
     this.characteristicNames;
@@ -504,7 +562,8 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
 
     //parse advertising data
     this.advdata = new Array();
-    if (this.rawAdvertisingData) {
+    if(typeof this.rawAdvertisingData !== 'undefined') {
+
         if (this.rawAdvertisingData.length % 2 === 0) {
             for (var i = 0; i < this.rawAdvertisingData.length; i = i + 2) {
                 this.advdata[i / 2] = this.rawAdvertisingData.charAt(i) + this.rawAdvertisingData.charAt(i + 1);
@@ -514,32 +573,77 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
                 this.advdata[j] = this.rawAdvertisingData.charAt(2 * j) + this.rawAdvertisingData.charAt(2 * j + 1);
             }
         }
+        
+        do {
+            if (this.advdata[1] == C.kGAP_ADTYPE_FLAGS) {
+                getDiscoverable(this);
+            } else if (this.advdata[1] == C.kGAP_ADTYPE_POWER_LEVEL) {
+                getTXLevel(this);
+            } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID) {
+                getServiceUUIDs(this);
+            } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID) {
+                getServiceUUIDs(this);
+            } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID) {
+                get128bitServiceUUIDs(this);
+            } else if (this.advdata[1] == C.kGAP_ADTYPE_MANUFACTURER_SPECIFIC) {
+                getManufacturerData(this);
+            } else if (this.advdata[1] == C.kGAP_ADTYPE_16BIT_SERVICE_DATA) {
+                getServiceData(this);
+            } else if (this.advdata[1] == "00") {
+                this.advdata.splice(0, 1);
+            } else {
+                var advdataLength = parseInt(this.advdata[0], 16);
+                this.advdata.splice(0, advdataLength + 1);
+            }
+            if (this.advdata.length === 0)
+                flag = false;
+        } while (flag);
+
     }
 
-    do {
-        if (this.advdata[1] == C.kGAP_ADTYPE_FLAGS) {
-            getDiscoverable(this);
-        } else if (this.advdata[1] == C.kGAP_ADTYPE_POWER_LEVEL) {
-            getTXLevel(this);
-        } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID) {
-            getServiceUUIDs(this);
-        } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID) {
-            getServiceUUIDs(this);
-        } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID) {
-            get128bitServiceUUIDs(this);
-        } else if (this.advdata[1] == C.kGAP_ADTYPE_MANUFACTURER_SPECIFIC) {
-            getManufacturerData(this);
-        } else if (this.advdata[1] == C.kGAP_ADTYPE_16BIT_SERVICE_DATA) {
-            getServiceData(this);
-        } else if (this.advdata[1] == "00") {
-            this.advdata.splice(0, 1);
-        } else {
-            var advdataLength = parseInt(this.advdata[0], 16);
-            this.advdata.splice(0, advdataLength + 1);
+    if( (typeof mfrData != 'undefined') && (Object.prototype.toString.call( mfrData ) === '[object Array]')){
+        this.manufacturerObj = mfrData;
+
+        var mfrValue = '';
+        for(var i = 0; i< mfrData.length; i++){
+            if(mfrData[i] && mfrData[i].value){
+                mfrValue = mfrValue + mfrData[i].value;
+            }
         }
-        if (this.advdata.length === 0)
-            flag = false;
-    } while (flag);
+        this.manufacturerData = mfrValue;
+    }
+
+    if( (typeof serviceData != 'undefined') && (Object.prototype.toString.call( serviceData ) === '[object Array]') ) {
+        this.serviceData = serviceData;
+    }
+
+    if( (typeof serviceUUIDs != 'undefined') && (Object.prototype.toString.call( serviceUUIDs ) === '[object Array]') ){
+        this.serviceUUIDs = serviceUUIDs;
+    }
+
+    this.getManufacturerDataById = function(mfrId){
+        var mfrData = undefined;
+        for (var i = 0; i < this.manufacturerObj.length; i++){
+            var mfrObj = this.manufacturerObj[i];
+            if(mfrObj.id === mfrId){
+                mfrData = mfrObj.value;
+                break;
+            }
+        }
+        return mfrData;
+    };
+
+    this.getServiceDataByUUID = function(serviceUUID){
+        var servData = undefined;
+        for (var i = 0; i < this.serviceData.length; i++){
+            var serObj = this.serviceData[i];
+            if(serObj.id === serviceUUID){
+                servData = serObj.value;
+                break;
+            }
+        }
+        return servData;
+    };
 
     this.connect = function (callback) {
         if (callback) this.onconnect = callback;
@@ -629,15 +733,15 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
         console.log("kGetRSSI event"); //TODO
     };
 
-    this.discoverServicesRequest = function () {
+    this.discoverServicesRequest = function (cookie) {
         if(_gattip.discoverServicesRequest){
-            _gattip.discoverServicesRequest(this);
+            _gattip.discoverServicesRequest(cookie, this);
         }else{
             throw Error('discoverServicesRequest method not implemented by server');
         }
     };
 
-    this.discoverServicesResponse = function (error) {
+    this.discoverServicesResponse = function (cookie, error) {
         if(!error){
             params = {};
             var servicesArray = [];
@@ -650,9 +754,10 @@ function Peripheral(gattip, name, uuid, addr, rssi, addata, scanData) {
             }
             params[C.kServices] = servicesArray;
             params[C.kPeripheralUUID] = this.uuid;
-            _gattip.write(C.kGetServices, params);
+
+            _gattip.write(C.kGetServices, params, cookie);
         }else{
-            _gattip.write(C.kGetServices, kError32603, error);
+            _gattip.sendErrorResponse(cookie, C.kGetServices, kError32603, error);
         }
     };
 
@@ -894,15 +999,15 @@ function Service(gattip, peripheral, uuid) {
         }
     };
 
-    this.discoverCharacteristicsRequest = function () {
+    this.discoverCharacteristicsRequest = function (cookie) {
         if(_gattip.discoverCharacteristicsRequest){
-            _gattip.discoverCharacteristicsRequest(_peripheral, this);
+            _gattip.discoverCharacteristicsRequest(cookie, _peripheral, this);
         }else{
             throw Error('discoverCharacteristicsRequest method not implemented by server');
         }
     };
 
-    this.discoverCharacteristicsResponse = function (error) {
+    this.discoverCharacteristicsResponse = function (cookie, error) {
         if(!error){
             params = {};
             var charsArray = [];
@@ -919,9 +1024,9 @@ function Service(gattip, peripheral, uuid) {
             params[C.kPeripheralUUID] = _peripheral.uuid;
             params[C.kServiceUUID] = this.uuid;
 
-            _gattip.write(C.kGetCharacteristics, params);
+            _gattip.write(C.kGetCharacteristics, params, cookie);
         }else{
-            _gattip.write(C.kGetCharacteristics, kError32603, error);
+            _gattip.sendErrorResponse(cookie, C.kGetCharacteristics, kError32603, error);
         }        
     };
 
@@ -1079,16 +1184,16 @@ function Characteristic(gattip, peripheral, service, uuid) {
         _gattip.write(C.kGetCharacteristicValue, params);
     };
 
-    this.discoverDescriptorsRequest = function () {
-        if(_gattip.discoverDescriptorsRequest){
-            _gattip.discoverDescriptorsRequest(_peripheral, _service, this);
-        }else{
+    this.discoverDescriptorsRequest = function (cookie) {
+        if (_gattip.discoverDescriptorsRequest) {
+            _gattip.discoverDescriptorsRequest(cookie, _peripheral, _service, this);
+        } else {
             throw Error('discoverDescriptorsRequest method not implemented by server');
         }
     };
 
-    this.discoverDescriptorsResponse = function (error) {
-        if(!error){
+    this.discoverDescriptorsResponse = function (cookie, error) {
+        if (!error) {
             params = {};
             var discArray = [];
 
@@ -1105,28 +1210,40 @@ function Characteristic(gattip, peripheral, service, uuid) {
             params[C.kServiceUUID] = _service.uuid;
             params[C.kCharacteristicUUID] = this.uuid;
 
-            _gattip.write(C.kGetDescriptors, params);
-        }else{
-            _gattip.write(C.kGetCharacteristics, kError32603, error);
-        }        
+            _gattip.write(C.kGetDescriptors, params, cookie);
+        } else {
+            _gattip.sendErrorResponse(cookie, C.kGetCharacteristics, kError32603, error);
+        }
     };
 
-    this.readCharacteristicValueRequest = function (params) {
-        _gattip.readCharacteristicValueRequest(_peripheral, _service, this);
+    this.readCharacteristicValueRequest = function (cookie, params) {
+        if (_gattip.readCharacteristicValueRequest) {
+            _gattip.readCharacteristicValueRequest(cookie, _peripheral, _service, this);
+        } else {
+            throw Error('readCharacteristicValueRequest method not implemented by server');
+        }
     };
 
-    this.writeCharacteristicValueRequest = function (params) {
-        _gattip.writeCharacteristicValueRequest(_peripheral, _service, this, params[C.kValue]);
+    this.writeCharacteristicValueRequest = function (cookie, params) {
+        if (_gattip.writeCharacteristicValueRequest) {
+            _gattip.writeCharacteristicValueRequest(cookie, _peripheral, _service, this, params[C.kValue]);
+        } else {
+            throw Error('writeCharacteristicValueRequest method not implemented by server');
+        }
     };
 
-    this.enableNotificationsRequest = function (params) {
-        _gattip.enableNotificationsRequest(_peripheral, _service, this, params[C.kValue]);
+    this.enableNotificationsRequest = function (cookie, params) {
+        if (_gattip.enableNotificationsRequest) {
+            _gattip.enableNotificationsRequest(cookie, _peripheral, _service, this, params[C.kValue]);
+        } else {
+            throw Error('enableNotificationsRequest method not implemented by server');
+        }
     };
 
-    this.respondToReadRequest = function (error) {
+    this.respondToReadRequest = function (cookie, error) {
 
         if (error) {
-            this.sendErrorResponse(C.kGetCharacteristicValue, C.kError32603, 'Failed to read the Characteristic value');
+            this.sendErrorResponse(cookie, C.kGetCharacteristicValue, C.kError32603, 'Failed to read the Characteristic value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -1135,14 +1252,14 @@ function Characteristic(gattip, peripheral, service, uuid) {
             params[C.kValue] = this.value;
             params[C.kIsNotifying] = this.isNotifying;
 
-            _gattip.write(C.kGetCharacteristicValue, params);
+            _gattip.write(C.kGetCharacteristicValue, params, cookie);
         }
     };
 
-    this.respondToWriteRequest = function (error) {
+    this.respondToWriteRequest = function (cookie, error) {
 
         if (error) {
-            this.sendErrorResponse(C.kWriteCharacteristicValue, C.kError32603, 'Failed to write the Characteristic value');
+            this.sendErrorResponse(cookie, C.kWriteCharacteristicValue, C.kError32603, 'Failed to write the Characteristic value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -1150,30 +1267,30 @@ function Characteristic(gattip, peripheral, service, uuid) {
             params[C.kCharacteristicUUID] = this.uuid;
             params[C.kValue] = this.value;
 
-            _gattip.write(C.kWriteCharacteristicValue, params);
+            _gattip.write(C.kWriteCharacteristicValue, params, cookie);
         }
     };
 
-     function respondNotify(self) {
+    function respondNotify(cookie, self) {
 
-         params = {};
-         params[C.kPeripheralUUID] = _peripheral.uuid;
-         params[C.kServiceUUID] = _service.uuid;
-         params[C.kCharacteristicUUID] = self.uuid;
-         params[C.kIsNotifying] = self.isNotifying;
-         params[C.kValue] = self.value;
+        params = {};
+        params[C.kPeripheralUUID] = _peripheral.uuid;
+        params[C.kServiceUUID] = _service.uuid;
+        params[C.kCharacteristicUUID] = self.uuid;
+        params[C.kIsNotifying] = self.isNotifying;
+        params[C.kValue] = self.value;
 
-         _gattip.write(C.kSetValueNotification, params);
+        _gattip.write(C.kSetValueNotification, params, cookie);
     }
 
-    this.respondWithNotification = function (value) {
+    this.respondWithNotification = function (cookie, value) {
         this.value = value;
-        respondNotify(this);
+        respondNotify(cookie, this);
     };
 
-    this.respondToChangeNotification = function (isNotifying) {
+    this.respondToChangeNotification = function (cookie, isNotifying) {
         this.isNotifying = isNotifying;
-        respondNotify(this);
+        respondNotify(cookie, this);
     };
 
     this.addDescriptor = function (descriptorUUID) {
@@ -1233,7 +1350,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         params[C.kPeripheralUUID] = _peripheral.uuid;
         params[C.kServiceUUID] = _service.uuid;
         params[C.kCharacteristicUUID] = _characteristic.uuid;
-        params[C.kDescriptorUUID] = this.uuid
+        params[C.kDescriptorUUID] = this.uuid;
         _gattip.write(C.kGetDescriptorValue, params);
     };
 
@@ -1248,7 +1365,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         params[C.kPeripheralUUID] = _peripheral.uuid;
         params[C.kServiceUUID] = _service.uuid;
         params[C.kCharacteristicUUID] = _characteristic.uuid;
-        params[C.kDescriptorUUID] = this.uuid
+        params[C.kDescriptorUUID] = this.uuid;
         params[C.kValue] = data;
         _gattip.write(C.kWriteDescriptorValue, params);
     };
@@ -1256,26 +1373,26 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
     this.onwrite = function (params) {
     };
 
-    this.readDescriptorValueRequest = function (params) {
-        if(_gattip.readDescriptorValueRequest){
-            _gattip.readDescriptorValueRequest(_peripheral, _service, _characteristic, this);
-        }else{
+    this.readDescriptorValueRequest = function (cookie, params) {
+        if (_gattip.readDescriptorValueRequest) {
+            _gattip.readDescriptorValueRequest(cookie, _peripheral, _service, _characteristic, this);
+        } else {
             throw Error('readDescriptorValueRequest method not implemented by server');
         }
     };
 
-    this.writeDescriptorValueRequest = function (params) {
-        if(_gattip.writeDescriptorValueRequest){
-            _gattip.writeDescriptorValueRequest(_peripheral, _service, _characteristic, this, params[C.kValue]);
-        }else{
+    this.writeDescriptorValueRequest = function (cookie, params) {
+        if (_gattip.writeDescriptorValueRequest) {
+            _gattip.writeDescriptorValueRequest(cookie, _peripheral, _service, _characteristic, this, params[C.kValue]);
+        } else {
             throw Error('writeDescriptorValueRequest method not implemented by server');
-        }        
+        }
     };
 
-    this.respondToReadDescriptorValueRequest = function (error) {
+    this.respondToReadDescriptorValueRequest = function (cookie, error) {
 
         if (error) {
-            this.sendErrorResponse(C.kGetDescriptorValue, C.kError32603, 'Failed to read the descriptor value');
+            this.sendErrorResponse(cookie, C.kGetDescriptorValue, C.kError32603, 'Failed to read the descriptor value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -1285,14 +1402,14 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
             params[C.kValue] = this.value;
             params[C.kIsNotifying] = this.isNotifying;
 
-            _gattip.write(C.kGetDescriptorValue, params);
+            _gattip.write(C.kGetDescriptorValue, params, cookie);
         }
     };
 
-    this.respondToWriteDescriptorValueRequest = function (error) {
+    this.respondToWriteDescriptorValueRequest = function (cookie, error) {
 
         if (error) {
-            this.sendErrorResponse(C.kWriteDescriptorValue, C.kError32603, 'Failed to write the descriptor value');
+            this.sendErrorResponse(cookie, C.kWriteDescriptorValue, C.kError32603, 'Failed to write the descriptor value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -1301,7 +1418,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
             params[C.kDescriptorUUID] = this.uuid;
             params[C.kValue] = this.value;
 
-            _gattip.write(C.kWriteDescriptorValue, params);
+            _gattip.write(C.kWriteDescriptorValue, params, cookie);
         }
     };
 
@@ -1423,7 +1540,7 @@ var C = {
     id: 1,
     authenticate: 'authenticate',
     AllProperties: ["Broadcast", "Read", "WriteWithoutResponse", "Write", "Notify", "Indicate", "AuthenticatedSignedWrites", "ExtendedProperties", "NotifyEncryptionRequired", "IndicateEncryptionRequired"]
-}
+};
 
 if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== 'undefined')) {
     exports.C = C;
