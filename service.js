@@ -72,15 +72,15 @@ function Service(gattip, peripheral, uuid) {
         }
     };
 
-    this.discoverCharacteristicsRequest = function () {
+    this.discoverCharacteristicsRequest = function (cookie) {
         if(_gattip.discoverCharacteristicsRequest){
-            _gattip.discoverCharacteristicsRequest(_peripheral, this);
+            _gattip.discoverCharacteristicsRequest(cookie, _peripheral, this);
         }else{
             throw Error('discoverCharacteristicsRequest method not implemented by server');
         }
     };
 
-    this.discoverCharacteristicsResponse = function (error) {
+    this.discoverCharacteristicsResponse = function (cookie, error) {
         if(!error){
             params = {};
             var charsArray = [];
@@ -97,9 +97,9 @@ function Service(gattip, peripheral, uuid) {
             params[C.kPeripheralUUID] = _peripheral.uuid;
             params[C.kServiceUUID] = this.uuid;
 
-            _gattip.write(C.kGetCharacteristics, params);
+            _gattip.write(C.kGetCharacteristics, params, cookie);
         }else{
-            _gattip.write(C.kGetCharacteristics, kError32603, error);
+            _gattip.sendErrorResponse(cookie, C.kGetCharacteristics, kError32603, error);
         }        
     };
 

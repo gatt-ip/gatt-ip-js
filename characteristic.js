@@ -139,16 +139,16 @@ function Characteristic(gattip, peripheral, service, uuid) {
         _gattip.write(C.kGetCharacteristicValue, params);
     };
 
-    this.discoverDescriptorsRequest = function () {
-        if(_gattip.discoverDescriptorsRequest){
-            _gattip.discoverDescriptorsRequest(_peripheral, _service, this);
-        }else{
+    this.discoverDescriptorsRequest = function (cookie) {
+        if (_gattip.discoverDescriptorsRequest) {
+            _gattip.discoverDescriptorsRequest(cookie, _peripheral, _service, this);
+        } else {
             throw Error('discoverDescriptorsRequest method not implemented by server');
         }
     };
 
-    this.discoverDescriptorsResponse = function (error) {
-        if(!error){
+    this.discoverDescriptorsResponse = function (cookie, error) {
+        if (!error) {
             params = {};
             var discArray = [];
 
@@ -165,28 +165,40 @@ function Characteristic(gattip, peripheral, service, uuid) {
             params[C.kServiceUUID] = _service.uuid;
             params[C.kCharacteristicUUID] = this.uuid;
 
-            _gattip.write(C.kGetDescriptors, params);
-        }else{
-            _gattip.write(C.kGetCharacteristics, kError32603, error);
-        }        
+            _gattip.write(C.kGetDescriptors, params, cookie);
+        } else {
+            _gattip.sendErrorResponse(cookie, C.kGetCharacteristics, kError32603, error);
+        }
     };
 
-    this.readCharacteristicValueRequest = function (params) {
-        _gattip.readCharacteristicValueRequest(_peripheral, _service, this);
+    this.readCharacteristicValueRequest = function (cookie, params) {
+        if (_gattip.readCharacteristicValueRequest) {
+            _gattip.readCharacteristicValueRequest(cookie, _peripheral, _service, this);
+        } else {
+            throw Error('readCharacteristicValueRequest method not implemented by server');
+        }
     };
 
-    this.writeCharacteristicValueRequest = function (params) {
-        _gattip.writeCharacteristicValueRequest(_peripheral, _service, this, params[C.kValue]);
+    this.writeCharacteristicValueRequest = function (cookie, params) {
+        if (_gattip.writeCharacteristicValueRequest) {
+            _gattip.writeCharacteristicValueRequest(cookie, _peripheral, _service, this, params[C.kValue]);
+        } else {
+            throw Error('writeCharacteristicValueRequest method not implemented by server');
+        }
     };
 
-    this.enableNotificationsRequest = function (params) {
-        _gattip.enableNotificationsRequest(_peripheral, _service, this, params[C.kValue]);
+    this.enableNotificationsRequest = function (cookie, params) {
+        if (_gattip.enableNotificationsRequest) {
+            _gattip.enableNotificationsRequest(cookie, _peripheral, _service, this, params[C.kValue]);
+        } else {
+            throw Error('enableNotificationsRequest method not implemented by server');
+        }
     };
 
-    this.respondToReadRequest = function (error) {
+    this.respondToReadRequest = function (cookie, error) {
 
         if (error) {
-            this.sendErrorResponse(C.kGetCharacteristicValue, C.kError32603, 'Failed to read the Characteristic value');
+            this.sendErrorResponse(cookie, C.kGetCharacteristicValue, C.kError32603, 'Failed to read the Characteristic value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -195,14 +207,14 @@ function Characteristic(gattip, peripheral, service, uuid) {
             params[C.kValue] = this.value;
             params[C.kIsNotifying] = this.isNotifying;
 
-            _gattip.write(C.kGetCharacteristicValue, params);
+            _gattip.write(C.kGetCharacteristicValue, params, cookie);
         }
     };
 
-    this.respondToWriteRequest = function (error) {
+    this.respondToWriteRequest = function (cookie, error) {
 
         if (error) {
-            this.sendErrorResponse(C.kWriteCharacteristicValue, C.kError32603, 'Failed to write the Characteristic value');
+            this.sendErrorResponse(cookie, C.kWriteCharacteristicValue, C.kError32603, 'Failed to write the Characteristic value');
         } else {
             params = {};
             params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -210,30 +222,30 @@ function Characteristic(gattip, peripheral, service, uuid) {
             params[C.kCharacteristicUUID] = this.uuid;
             params[C.kValue] = this.value;
 
-            _gattip.write(C.kWriteCharacteristicValue, params);
+            _gattip.write(C.kWriteCharacteristicValue, params, cookie);
         }
     };
 
-     function respondNotify(self) {
+    function respondNotify(cookie, self) {
 
-         params = {};
-         params[C.kPeripheralUUID] = _peripheral.uuid;
-         params[C.kServiceUUID] = _service.uuid;
-         params[C.kCharacteristicUUID] = self.uuid;
-         params[C.kIsNotifying] = self.isNotifying;
-         params[C.kValue] = self.value;
+        params = {};
+        params[C.kPeripheralUUID] = _peripheral.uuid;
+        params[C.kServiceUUID] = _service.uuid;
+        params[C.kCharacteristicUUID] = self.uuid;
+        params[C.kIsNotifying] = self.isNotifying;
+        params[C.kValue] = self.value;
 
-         _gattip.write(C.kSetValueNotification, params);
+        _gattip.write(C.kSetValueNotification, params, cookie);
     }
 
-    this.respondWithNotification = function (value) {
+    this.respondWithNotification = function (cookie, value) {
         this.value = value;
-        respondNotify(this);
+        respondNotify(cookie, this);
     };
 
-    this.respondToChangeNotification = function (isNotifying) {
+    this.respondToChangeNotification = function (cookie, isNotifying) {
         this.isNotifying = isNotifying;
-        respondNotify(this);
+        respondNotify(cookie, this);
     };
 
     this.addDescriptor = function (descriptorUUID) {
