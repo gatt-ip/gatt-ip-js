@@ -1,4 +1,4 @@
-function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData)  {
+function Peripheral(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData) {
     var path = "lib/gatt-ip-js/browser/"; // Replace the path to json configuration file.
 
     if (typeof process === 'object' && process + '' === '[object process]') {
@@ -7,106 +7,145 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
     }
 
     var _gattip = gattip;
-    this.name = name;
-    this.uuid = uuid;
-    this.advertisementData = addata;
-    this.scanData = scanData;
-    this.serviceUUIDs = [];
-    if (addata)this.rawAdvertisingData = addata[C.kRawAdvertisementData];
     this.manufacturerData = {};
     this.serviceData = {};
-    this.rssi = rssi;
-    this.addr = addr;
-    this.isConnected = false;
+    this.serviceUUIDs = [];
     this.services = {};
-    this.txpowerLevel = txPwr;
+    this.isConnected = false;
+    var self = this;
 
     this.serviceNames;
     this.characteristicNames;
     this.descriptorNames;
 
-    var self = this;
-
-    var flag = true;
-
-    Object.size = function (obj) {
-        var size = 0, key;
+    Object.size = function(obj) {
+        var size = 0,
+            key;
         for (key in obj) {
             if (obj.hasOwnProperty(key)) size++;
         }
         return size;
     };
 
-    //parse advertising data
-    this.advdata = new Array();
-    if(typeof this.rawAdvertisingData !== 'undefined') {
-
-        if (this.rawAdvertisingData.length % 2 === 0) {
-            for (var i = 0; i < this.rawAdvertisingData.length; i = i + 2) {
-                this.advdata[i / 2] = this.rawAdvertisingData.charAt(i) + this.rawAdvertisingData.charAt(i + 1);
-            }
-        } else {
-            for (var j = 0; j < this.rawAdvertisingData.length; j++) {
-                this.advdata[j] = this.rawAdvertisingData.charAt(2 * j) + this.rawAdvertisingData.charAt(2 * j + 1);
-            }
+    Array.prototype.pushUnique = function(item) {
+        if (this.indexOf(item) == -1) {
+            this.push(item);
+            return true;
         }
-        
-        do {
-            if (this.advdata[1] == C.kGAP_ADTYPE_FLAGS) {
-                getDiscoverable(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_POWER_LEVEL) {
-                getTXLevel(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID) {
-                getServiceUUIDs(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID) {
-                getServiceUUIDs(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID) {
-                get128bitServiceUUIDs(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_MANUFACTURER_SPECIFIC) {
-                getManufacturerData(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_16BIT_SERVICE_DATA) {
-                getServiceData(this);
-            } else if (this.advdata[1] == "00") {
-                this.advdata.splice(0, 1);
-            } else {
-                var advdataLength = parseInt(this.advdata[0], 16);
-                this.advdata.splice(0, advdataLength + 1);
-            }
-            if (this.advdata.length === 0)
-                flag = false;
-        } while (flag);
-
+        return false;
     }
 
-    this.getManufacturerDataById = function(mfrId){
+    this.updatePeripheral = function(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData) {
+        this.Constructor(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData);
+    }
+
+    this.Constructor = function(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData) {
+
+        var flag = true;
+        _gattip = gattip;
+
+        this.name = name;
+        this.uuid = uuid;
+        this.addr = addr;
+        this.rssi = rssi;
+        this.txpowerLevel = txPwr;
+
+        this.advertisementData = addata;
+        this.scanData = scanData;
+        if (addata) this.rawAdvertisingData = addata[C.kRawAdvertisementData];
+
+        //parse advertising data
+        this.advdata = new Array();
+        if (typeof this.rawAdvertisingData !== 'undefined') {
+
+            if (this.rawAdvertisingData.length % 2 === 0) {
+                for (var i = 0; i < this.rawAdvertisingData.length; i = i + 2) {
+                    this.advdata[i / 2] = this.rawAdvertisingData.charAt(i) + this.rawAdvertisingData.charAt(i + 1);
+                }
+            } else {
+                for (var j = 0; j < this.rawAdvertisingData.length; j++) {
+                    this.advdata[j] = this.rawAdvertisingData.charAt(2 * j) + this.rawAdvertisingData.charAt(2 * j + 1);
+                }
+            }
+
+            do {
+                if (this.advdata[1] == C.kGAP_ADTYPE_FLAGS) {
+                    getDiscoverable(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_POWER_LEVEL) {
+                    getTXLevel(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID) {
+                    getServiceUUIDs(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID) {
+                    getServiceUUIDs(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID) {
+                    get128bitServiceUUIDs(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_MANUFACTURER_SPECIFIC) {
+                    getManufacturerData(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_16BIT_SERVICE_DATA) {
+                    getServiceData(this);
+                } else if (this.advdata[1] == "00") {
+                    this.advdata.splice(0, 1);
+                } else {
+                    var advdataLength = parseInt(this.advdata[0], 16);
+                    this.advdata.splice(0, advdataLength + 1);
+                }
+                if (this.advdata.length === 0)
+                    flag = false;
+            } while (flag);
+
+        }
+
+        if ((typeof mfrData != 'undefined') && (Object.prototype.toString.call(mfrData) === '[object Object]')) {
+            if (this.manufacturerData && this.manufacturerData.size > 0) {
+                for (var mfrId in mfrData) {
+                    this.manufacturerData[mfrId] = mfrData[mfrId];
+                }
+            } else {
+                this.manufacturerData = mfrData;
+            }
+        }
+
+        if ((typeof serviceData != 'undefined') && (Object.prototype.toString.call(serviceData) === '[object Object]')) {
+            if (this.serviceData && this.serviceData.size > 0) {
+                for (var serUUID in serviceData) {
+                    this.serviceData[serUUID] = serviceData[serUUID];
+                }
+            } else {
+                this.serviceData = serviceData;
+            }
+        }
+
+        if ((typeof serviceUUIDs != 'undefined') && (Object.prototype.toString.call(serviceUUIDs) === '[object Array]')) {
+            if (this.serviceUUIDs && this.serviceUUIDs.length > 0) {
+                for (var id = 0; id < serviceUUIDs.length; id++) {
+                    this.serviceUUIDs.pushUnique(serviceUUIDs[id]);
+                }
+            } else {
+                this.serviceUUIDs = serviceUUIDs;
+            }
+        }
+
+    };
+
+    this.getManufacturerDataById = function(mfrId) {
         if ('number' === typeof mfrId) {
             mfrId = '' + Number(mfrId).toString(16);
             var prefix = '';
             for (var i = mfrId.length; i < 4; i++) {
-                prefix+='0';
+                prefix += '0';
             }
             mfrId = prefix + mfrId;
         }
         return this.manufacturerData[mfrId];;
     };
 
-    this.getServiceDataByUUID = function(serviceUUID){
+    this.getServiceDataByUUID = function(serviceUUID) {
         return this.serviceData[serviceUUID];;
     };
 
-    if( (typeof mfrData != 'undefined') && (Object.prototype.toString.call( mfrData ) === '[object Object]')){        
-        this.manufacturerData = mfrData;
-    }
+    this.Constructor(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData);
 
-    if( (typeof serviceData != 'undefined') && (Object.prototype.toString.call( serviceData ) === '[object Object]') ) {
-        this.serviceData = serviceData;
-    }
-
-    if( (typeof serviceUUIDs != 'undefined') && (Object.prototype.toString.call( serviceUUIDs ) === '[object Array]') ){
-        this.serviceUUIDs = serviceUUIDs;
-    }
-
-    this.connect = function (callback) {
+    this.connect = function(callback) {
         if (callback) this.onconnect = callback;
 
         // TODO: Loading the JSON's for UUID names
@@ -137,13 +176,13 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
         _gattip.write(C.kConnect, params);
     };
 
-    this.onconnect = function (error) {
+    this.onconnect = function(error) {
         if (!error) {
             this.isConnected = true;
         }
     };
 
-    this.disconnect = function (callback) {
+    this.disconnect = function(callback) {
         if (callback) this.onconnect = callback;
 
         var params = {};
@@ -151,14 +190,14 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
         _gattip.write(C.kDisconnect, params);
     };
 
-    this.ondisconnect = function (error) {
+    this.ondisconnect = function(error) {
         if (!error) {
             console.log(this.name + ' disconnected');
             this.isConnected = false;
         }
     };
 
-    this.discoverServices = function (callback) {
+    this.discoverServices = function(callback) {
         if (callback) this.ondiscoverServices = callback;
 
         if (this.services && Object.size(this.services) > 0) {
@@ -170,7 +209,7 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
         }
     };
 
-    this.ondiscoverServices = function (params) {
+    this.ondiscoverServices = function(params) {
         for (var index in params[C.kServices]) {
             var serviceUUID = params[C.kServices][index][C.kServiceUUID];
             var service = this.services[serviceUUID];
@@ -181,7 +220,7 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
         }
     };
 
-    this.updateRSSI = function (callback) {
+    this.updateRSSI = function(callback) {
         if (callback) this.onupdateRSSI = callback;
 
         var params = {};
@@ -190,20 +229,20 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
         _gattip.write(C.kGetRSSI, params);
     };
 
-    this.onupdateRSSI = function (params) {
+    this.onupdateRSSI = function(params) {
         console.log("kGetRSSI event"); //TODO
     };
 
-    this.discoverServicesRequest = function (cookie) {
-        if(_gattip.discoverServicesRequest){
+    this.discoverServicesRequest = function(cookie) {
+        if (_gattip.discoverServicesRequest) {
             _gattip.discoverServicesRequest(cookie, this);
-        }else{
+        } else {
             throw Error('discoverServicesRequest method not implemented by server');
         }
     };
 
-    this.discoverServicesResponse = function (cookie, error) {
-        if(!error){
+    this.discoverServicesResponse = function(cookie, error) {
+        if (!error) {
             params = {};
             var servicesArray = [];
 
@@ -217,12 +256,12 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
             params[C.kPeripheralUUID] = this.uuid;
 
             _gattip.write(C.kGetServices, params, cookie);
-        }else{
+        } else {
             _gattip.sendErrorResponse(cookie, C.kGetServices, kError32603, error);
         }
     };
 
-    this.addService = function (serviceUUID) {
+    this.addService = function(serviceUUID) {
         var service = new Service(_gattip, this, serviceUUID);
         this.services[service.uuid] = service;
 
@@ -246,7 +285,7 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
 
     function getManufacturerData(peripheral) {
         var manufacturerDataLength = parseInt(peripheral.advdata[0], 16);
-        if(manufacturerDataLength > 2){
+        if (manufacturerDataLength > 2) {
             var mfrKey = peripheral.advdata[3] + peripheral.advdata[2];
             var mfrData = '';
             for (var k = 4; k <= manufacturerDataLength; k++) {

@@ -9,13 +9,13 @@ function GATTIP() {
     var client;
     this.peripherals = {};
 
-    this.init = function (url, callback) {
+    this.init = function(url, callback) {
 
         if (callback) this.oninit = callback;
 
         this.socket = new WebSocket(url);
 
-        this.socket.onopen = function () {
+        this.socket.onopen = function() {
             this.initWithClient(this.socket);
             if (this.oninit) {
                 this.oninit();
@@ -23,13 +23,13 @@ function GATTIP() {
         }.bind(this);
     };
 
-    this.initWithClient = function (_client) {
+    this.initWithClient = function(_client) {
         this.state = C.kUnknown;
         client = _client;
         client.onmessage = this.processMessage.bind(this);
     };
 
-    this.processMessage = function (mesg) {
+    this.processMessage = function(mesg) {
         var response = JSON.parse(mesg.data);
         var peripheral, service, characteristic, descriptor, gObject = {};
 
@@ -40,15 +40,27 @@ function GATTIP() {
             case C.kScanForPeripherals:
                 if (response.params && response.params[C.kPeripheralUUID])
                     peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
+                if (peripheral) {
+                    peripheral.updatePeripheral(this,
+                        response.params[C.kPeripheralName],
+                        response.params[C.kPeripheralUUID],
+                        response.params[C.kPeripheralBtAddress],
+                        response.params[C.kRSSIkey],
+                        response.params[C.kCBAdvertisementDataTxPowerLevel],
+                        response.params[C.kCBAdvertisementDataServiceUUIDsKey],
+                        response.params[C.kCBAdvertisementDataManufacturerDataKey],
+                        response.params[C.kCBAdvertisementDataServiceDataKey],
+                        response.params[C.kAdvertisementDataKey],
+                        response.params[C.kScanRecord]);
+                } else {
                     peripheral = new Peripheral(this,
                         response.params[C.kPeripheralName],
                         response.params[C.kPeripheralUUID],
                         response.params[C.kPeripheralBtAddress],
                         response.params[C.kRSSIkey],
                         response.params[C.kCBAdvertisementDataTxPowerLevel],
-                        response.params[C.kCBAdvertisementDataServiceUUIDsKey], 
-                        response.params[C.kCBAdvertisementDataManufacturerDataKey],                                               
+                        response.params[C.kCBAdvertisementDataServiceUUIDsKey],
+                        response.params[C.kCBAdvertisementDataManufacturerDataKey],
                         response.params[C.kCBAdvertisementDataServiceDataKey],
                         response.params[C.kAdvertisementDataKey],
                         response.params[C.kScanRecord]);
@@ -208,7 +220,7 @@ function GATTIP() {
         }
     };
 
-    this.getObjects = function (type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
+    this.getObjects = function(type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
 
         var resultObj = {};
 
@@ -249,10 +261,9 @@ function GATTIP() {
         return resultObj;
     };
 
-    this.oninit = function (params) {
-    };
+    this.oninit = function(params) {};
 
-    this.configure = function (pwrAlert, centralID, callback) {
+    this.configure = function(pwrAlert, centralID, callback) {
         if (callback) this.onconfigure = callback;
 
         var params = {};
@@ -261,10 +272,9 @@ function GATTIP() {
         this.write(C.kConfigure, params);
     };
 
-    this.onconfigure = function (params) {
-    };
+    this.onconfigure = function(params) {};
 
-    this.scan = function (scanDuplicates, services, callback) {
+    this.scan = function(scanDuplicates, services, callback) {
         if (callback) this.onscan = callback;
         this.peripherals = {};
         var params = {};
@@ -273,47 +283,49 @@ function GATTIP() {
         this.write(C.kScanForPeripherals, params);
     };
 
-    this.onscan = function (params) {
-    };
+    this.onscan = function(params) {};
 
-    this.stopScan = function (callback) {
+    this.stopScan = function(callback) {
         if (callback) this.onscan = callback;
 
         var params = {};
         this.write(C.kStopScanning, params);
     };
 
-    this.onstopScan = function (params) {
-    };
+    this.onstopScan = function(params) {};
 
-    this.centralState = function () {
+    this.centralState = function() {
         var params = {};
         this.write(C.kCentralState, params);
     };
 
-    this.onstate = function (state) {
-    };
+    this.onstate = function(state) {};
 
-    this.onupdateRSSI = function (peripheral) {
-    };
-
-    this.onerror = function (err_msg) {
+    this.onerror = function(err_msg) {
         console.log(err_msg);
     };
 
-    this.close = function (callback) {
+    this.close = function(callback) {
         if (client) {
             client.close();
         }
     };
 
-    this.onclose = function (params, error) {};
+    this.onclose = function(params, error) {};
 
-    this.ondescriptorRead = function (peripheral, service, characteristic, descriptor, error) {};
+    this.onconnect = function(params) {};
+    this.ondisconnect = function(params) {};
+    this.ondiscoverServices = function(params) {};
+    this.ondiscoverCharacteristics = function(params) {};
+    this.ondiscoverDescriptors = function(params) {};
+    this.onupdateValue = function(params) {};
+    this.onwriteValue = function(params) {};
+    this.onupdateRSSI = function(peripheral) {};
+    this.onMessage = function(params) {};
+    this.ondescriptorRead = function(peripheral, service, characteristic, descriptor, error) {};
+    this.ondescriptorWrite = function(peripheral, service, characteristic, descriptor, error) {};
 
-    this.ondescriptorWrite = function (peripheral, service, characteristic, descriptor, error) {};
-
-    this.write = function (method, params, id) {
+    this.write = function(method, params, id) {
         var mesg = {};
         mesg.jsonrpc = "2.0";
         mesg.method = method;
@@ -323,7 +335,7 @@ function GATTIP() {
         this.send(JSON.stringify(mesg));
     };
 
-    this.send = function (mesg) {
+    this.send = function(mesg) {
         if (!client) {
             this.onerror("not connected");
             return;

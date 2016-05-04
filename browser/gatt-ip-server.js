@@ -92,7 +92,7 @@ function GattIpServer() {
                 this.configureRequest(cookie, message.params);
                 break;
             case C.kScanForPeripherals:
-                this.scanRequest(cookie, message.params);
+                this.scanRequest(cookie, message.params[C.kScanOptionAllowDuplicatesKey], message.params[C.kServiceUUIDs]);
                 break;
             case C.kStopScanning:
                 this.stopScanRequest(cookie, message.params);
@@ -523,28 +523,17 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
         Service = require("./service.js").Service;
     }
 
-    var _gattip = gattip;
-    this.name = name;
-    this.uuid = uuid;
-    this.advertisementData = addata;
-    this.scanData = scanData;
-    this.serviceUUIDs = [];
-    if (addata)this.rawAdvertisingData = addata[C.kRawAdvertisementData];
+    var _gattip = gattip; 
     this.manufacturerData = {};
     this.serviceData = {};
-    this.rssi = rssi;
-    this.addr = addr;
+    this.serviceUUIDs = [];
+    this.services = {}; 
     this.isConnected = false;
-    this.services = {};
-    this.txpowerLevel = txPwr;
+    var self = this;
 
     this.serviceNames;
     this.characteristicNames;
     this.descriptorNames;
-
-    var self = this;
-
-    var flag = true;
 
     Object.size = function (obj) {
         var size = 0, key;
@@ -554,48 +543,107 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
         return size;
     };
 
-    //parse advertising data
-    this.advdata = new Array();
-    if(typeof this.rawAdvertisingData !== 'undefined') {
-
-        if (this.rawAdvertisingData.length % 2 === 0) {
-            for (var i = 0; i < this.rawAdvertisingData.length; i = i + 2) {
-                this.advdata[i / 2] = this.rawAdvertisingData.charAt(i) + this.rawAdvertisingData.charAt(i + 1);
-            }
-        } else {
-            for (var j = 0; j < this.rawAdvertisingData.length; j++) {
-                this.advdata[j] = this.rawAdvertisingData.charAt(2 * j) + this.rawAdvertisingData.charAt(2 * j + 1);
-            }
+    Array.prototype.pushUnique = function (item){
+        if(this.indexOf(item) == -1) {
+            this.push(item);
+            return true;
         }
-        
-        do {
-            if (this.advdata[1] == C.kGAP_ADTYPE_FLAGS) {
-                getDiscoverable(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_POWER_LEVEL) {
-                getTXLevel(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID) {
-                getServiceUUIDs(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID) {
-                getServiceUUIDs(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID) {
-                get128bitServiceUUIDs(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_MANUFACTURER_SPECIFIC) {
-                getManufacturerData(this);
-            } else if (this.advdata[1] == C.kGAP_ADTYPE_16BIT_SERVICE_DATA) {
-                getServiceData(this);
-            } else if (this.advdata[1] == "00") {
-                this.advdata.splice(0, 1);
-            } else {
-                var advdataLength = parseInt(this.advdata[0], 16);
-                this.advdata.splice(0, advdataLength + 1);
-            }
-            if (this.advdata.length === 0)
-                flag = false;
-        } while (flag);
-
+        return false;
     }
 
-    this.getManufacturerDataById = function(mfrId){
+    this.updatePeripheral = function(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData){
+        this.Constructor(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData);
+    }
+
+    this.Constructor = function(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData){
+        
+        var flag = true;
+        _gattip = gattip;
+
+        this.name = name;
+        this.uuid = uuid;
+        this.addr = addr;
+        this.rssi = rssi;
+        this.txpowerLevel = txPwr;
+
+        this.advertisementData = addata;
+        this.scanData = scanData;
+        if (addata)this.rawAdvertisingData = addata[C.kRawAdvertisementData];
+
+        //parse advertising data
+        this.advdata = new Array();
+        if(typeof this.rawAdvertisingData !== 'undefined') {
+
+            if (this.rawAdvertisingData.length % 2 === 0) {
+                for (var i = 0; i < this.rawAdvertisingData.length; i = i + 2) {
+                    this.advdata[i / 2] = this.rawAdvertisingData.charAt(i) + this.rawAdvertisingData.charAt(i + 1);
+                }
+            } else {
+                for (var j = 0; j < this.rawAdvertisingData.length; j++) {
+                    this.advdata[j] = this.rawAdvertisingData.charAt(2 * j) + this.rawAdvertisingData.charAt(2 * j + 1);
+                }
+            }
+            
+            do {
+                if (this.advdata[1] == C.kGAP_ADTYPE_FLAGS) {
+                    getDiscoverable(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_POWER_LEVEL) {
+                    getTXLevel(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_16BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_16BIT_SERVICEUUID) {
+                    getServiceUUIDs(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_32BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_32BIT_SERVICEUUID) {
+                    getServiceUUIDs(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_INCOMPLETE_128BIT_SERVICEUUID || this.advdata[1] == C.kGAP_ADTYPE_COMPLETE_128BIT_SERVICEUUID) {
+                    get128bitServiceUUIDs(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_MANUFACTURER_SPECIFIC) {
+                    getManufacturerData(this);
+                } else if (this.advdata[1] == C.kGAP_ADTYPE_16BIT_SERVICE_DATA) {
+                    getServiceData(this);
+                } else if (this.advdata[1] == "00") {
+                    this.advdata.splice(0, 1);
+                } else {
+                    var advdataLength = parseInt(this.advdata[0], 16);
+                    this.advdata.splice(0, advdataLength + 1);
+                }
+                if (this.advdata.length === 0)
+                    flag = false;
+            } while (flag);
+
+        }
+
+        if( (typeof mfrData != 'undefined') && (Object.prototype.toString.call( mfrData ) === '[object Object]')){
+            if(this.manufacturerData && this.manufacturerData.size > 0){
+                for(var mfrId in mfrData){
+                    this.manufacturerData[mfrId] = mfrData[mfrId];
+                }
+            }else{
+                this.manufacturerData = mfrData;
+            }            
+        }
+
+        if( (typeof serviceData != 'undefined') && (Object.prototype.toString.call( serviceData ) === '[object Object]') ) {
+            if(this.serviceData && this.serviceData.size > 0){            
+                for(var serUUID in serviceData){
+                    this.serviceData[serUUID] = serviceData[serUUID];
+                }
+            }else{
+                this.serviceData = serviceData;
+            }
+        }
+
+        if( (typeof serviceUUIDs != 'undefined') && (Object.prototype.toString.call( serviceUUIDs ) === '[object Array]') ){
+            if(this.serviceUUIDs && this.serviceUUIDs.length > 0){
+                for(var id = 0; id < serviceUUIDs.length; id++){
+                    this.serviceUUIDs.pushUnique(serviceUUIDs[id]);
+                }
+            }else{
+                this.serviceUUIDs = serviceUUIDs;
+            }
+        }
+
+    };
+
+   this.getManufacturerDataById = function(mfrId){
         if ('number' === typeof mfrId) {
             mfrId = '' + Number(mfrId).toString(16);
             var prefix = '';
@@ -611,17 +659,7 @@ function Peripheral(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrDat
         return this.serviceData[serviceUUID];;
     };
 
-    if( (typeof mfrData != 'undefined') && (Object.prototype.toString.call( mfrData ) === '[object Object]')){        
-        this.manufacturerData = mfrData;
-    }
-
-    if( (typeof serviceData != 'undefined') && (Object.prototype.toString.call( serviceData ) === '[object Object]') ) {
-        this.serviceData = serviceData;
-    }
-
-    if( (typeof serviceUUIDs != 'undefined') && (Object.prototype.toString.call( serviceUUIDs ) === '[object Array]') ){
-        this.serviceUUIDs = serviceUUIDs;
-    }
+    this.Constructor(gattip, name, uuid, addr, rssi,  txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData);
 
     this.connect = function (callback) {
         if (callback) this.onconnect = callback;

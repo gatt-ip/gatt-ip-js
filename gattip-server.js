@@ -10,12 +10,12 @@ function GattIpServer() {
     this.state = C.kUnknown;
     this.peripherals = {};
 
-    this.init = function (url, callback) {
+    this.init = function(url, callback) {
         if (callback) this.oninit = callback;
 
         this.socket = new WebSocket(url);
 
-        this.socket.onopen = function () {
+        this.socket.onopen = function() {
             this.initWithServer(this.socket);
             if (this.oninit) {
                 this.oninit();
@@ -23,7 +23,7 @@ function GattIpServer() {
         }.bind(this);
     };
 
-    this.initWithServer = function (_server) {
+    this.initWithServer = function(_server) {
         server = _server;
 
         if (!server.send) {
@@ -32,23 +32,23 @@ function GattIpServer() {
         server.onmessage = this.processMessage.bind(this);
 
         if (!server.onclose) {
-            server.onclose = function () {
+            server.onclose = function() {
                 console.log('socket is closed')
             };
         }
         if (!server.onerror) {
-            server.onerror = function (error) {
+            server.onerror = function(error) {
                 console.log('socket is onerror, onerror' + error);
             };
         }
         if (!server.error) {
-            server.onerror = function (error) {
+            server.onerror = function(error) {
                 console.log('socket is error, error' + error);
             };
         }
     };
 
-    this.processMessage = function (mesg) {
+    this.processMessage = function(mesg) {
         var message = JSON.parse(mesg.data);
         var params, peripheral, service, characteristic, descriptor, gObject;
 
@@ -69,7 +69,7 @@ function GattIpServer() {
             return;
         }
 
-        var cookie = {id : message.id, session_id : message.session_id};
+        var cookie = { id: message.id, session_id: message.session_id };
 
         //TODO: It is better to remove the devices, if length is going to infinite, based on like recently used..
         //TODO: General comment - you should not be tracking peripherals/services/etc.
@@ -92,7 +92,7 @@ function GattIpServer() {
                 this.configureRequest(cookie, message.params);
                 break;
             case C.kScanForPeripherals:
-                this.scanRequest(cookie, message.params);
+                this.scanRequest(cookie, message.params[C.kScanOptionAllowDuplicatesKey], message.params[C.kServiceUUIDs]);
                 break;
             case C.kStopScanning:
                 this.stopScanRequest(cookie, message.params);
@@ -197,7 +197,7 @@ function GattIpServer() {
     };
 
 
-    this.getObjects = function (cookie, type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
+    this.getObjects = function(cookie, type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
 
         var resultObj = {};
 
@@ -238,7 +238,7 @@ function GattIpServer() {
 
     };
 
-    this.sendErrorResponse = function (cookie, method, errorId, errMessage) {
+    this.sendErrorResponse = function(cookie, method, errorId, errMessage) {
         var error = {};
         params = {};
         error[C.kCode] = errorId;
@@ -247,18 +247,18 @@ function GattIpServer() {
         this.write(method, undefined, cookie, error);
     };
 
-    this.authenticate = function (token) {
+    this.authenticate = function(token) {
         this.send(JSON.stringify({
             type: C.authenticate,
             access_token: token
         }));
     };
 
-    this.configureRequest = function () {
+    this.configureRequest = function() {
         console.error('configureRequest method not implemented by server');
     };
 
-    this.configureResponse = function (cookie, error) {
+    this.configureResponse = function(cookie, error) {
         if (!error) {
             this.write(C.kConfigure, undefined, cookie);
         } else {
@@ -266,11 +266,11 @@ function GattIpServer() {
         }
     };
 
-    this.centralStateRequest = function () {
+    this.centralStateRequest = function() {
         console.error('centralStateRequest method not implemented by server');
     };
 
-    this.centralStateResponse = function (cookie, state, error) {
+    this.centralStateResponse = function(cookie, state, error) {
         if (!error) {
             params = {};
             params[C.kState] = state;
@@ -280,11 +280,11 @@ function GattIpServer() {
         }
     };
 
-    this.scanRequest = function () {
+    this.scanRequest = function() {
         console.error('scanRequest method not implemented by server');
     };
 
-    function arrayAsHex (array, pretty) {
+    function arrayAsHex(array, pretty) {
         var ret = (pretty ? '0x' : '');
         for (var i in array) {
             var value = (array[i] & 0xFF).toString(16);
@@ -305,27 +305,27 @@ function GattIpServer() {
     }
 
     function isEmpty(obj) {
-        for(var prop in obj) {
-            if(obj.hasOwnProperty(prop))
+        for (var prop in obj) {
+            if (obj.hasOwnProperty(prop))
                 return false;
         }
 
         return JSON.stringify(obj) === JSON.stringify({});
     }
 
-    this.scanResponse = function (cookie, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, svcData) {
+    this.scanResponse = function(cookie, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, svcData) {
         params = {};
         var manufactData;
         var serviceData;
 
-        if(!isEmpty(mfrData)) {
+        if (!isEmpty(mfrData)) {
             manufactData = {};
             for (var mk in mfrData) {
                 var mkey = mk.toUpperCase();
                 manufactData[mkey] = arrayAsHex(mfrData[mk]).toUpperCase();
             }
         }
-        if(!isEmpty(svcData)) {
+        if (!isEmpty(svcData)) {
             serviceData = {};
             for (var sk in svcData) {
                 var skey = sk.toUpperCase();
@@ -345,11 +345,11 @@ function GattIpServer() {
         this.write(C.kScanForPeripherals, params, cookie);
     };
 
-    this.stopScanRequest = function () {
+    this.stopScanRequest = function() {
         console.error('stopScanRequest method not implemented by server');
     };
 
-    this.stopScanResponse = function (cookie, error) {
+    this.stopScanResponse = function(cookie, error) {
         if (!error) {
             this.write(C.kStopScanning, undefined, cookie);
         } else {
@@ -358,11 +358,11 @@ function GattIpServer() {
 
     };
 
-    this.connectRequest = function () {
+    this.connectRequest = function() {
         console.error('connectRequest method not implemented by server');
     };
 
-    this.connectResponse = function (cookie, peripheral, error) {
+    this.connectResponse = function(cookie, peripheral, error) {
         var peripheral_db = {};
         peripheral_db[C.kPeripheralUUID] = peripheral.uuid;
         peripheral_db[C.kPeripheralName] = peripheral.name;
@@ -378,11 +378,11 @@ function GattIpServer() {
         }
     };
 
-    this.disconnectRequest = function () {
+    this.disconnectRequest = function() {
         console.error('disconnectRequest method not implemented by server');
     };
 
-    this.disconnectResponse = function (peripheral, error) {
+    this.disconnectResponse = function(peripheral, error) {
         if (!error) {
             params = {};
             params[C.kPeripheralUUID] = peripheral.uuid;
@@ -394,20 +394,20 @@ function GattIpServer() {
         }
     };
 
-    this.write = function (result, params, cookie, error) {
+    this.write = function(result, params, cookie, error) {
         var mesg = {};
         mesg.jsonrpc = "2.0";
         mesg.result = result;
         mesg.params = params;
         mesg.error = error;
-        if(cookie){
+        if (cookie) {
             mesg.id = cookie.id;
             mesg.session_id = cookie.session_id;
         }
         this.send(JSON.stringify(mesg));
     };
 
-    this.send = function (mesg) {
+    this.send = function(mesg) {
         if (!server) {
             this.onerror("not connected");
             return;
@@ -419,7 +419,7 @@ function GattIpServer() {
         server.send(mesg);
     };
 
-    this.close = function (callback) {
+    this.close = function(callback) {
         if (server) {
             server.close();
         }
@@ -479,7 +479,7 @@ function GattIpServer() {
         return descriptor_db;
     }
 
-    this.addPeripheral = function (name, uuid, addr, rssi, txPower, serviceUUIDs, addata, serviceData) {
+    this.addPeripheral = function(name, uuid, addr, rssi, txPower, serviceUUIDs, addata, serviceData) {
         var peripheral = new Peripheral(this, name, uuid, addr, rssi, txPower, serviceUUIDs, addata, serviceData);
         this.peripherals[peripheral.uuid] = peripheral;
 
