@@ -14,8 +14,9 @@ function Service(gattip, peripheral, uuid) {
     this.includedServices = {};
     this.serviceName = '';
 
-    Object.size = function (obj) {
-        var size = 0, key;
+    Object.size = function(obj) {
+        var size = 0,
+            key;
         for (key in obj) {
             if (obj.hasOwnProperty(key)) size++;
         }
@@ -29,13 +30,11 @@ function Service(gattip, peripheral, uuid) {
         }
     }
 
-    this.discoverIncludedServices = function (callback) {
-    };
+    this.discoverIncludedServices = function(callback) {};
 
-    this.ondiscoverIncludedServices = function (error) {
-    };
+    this.ondiscoverIncludedServices = function(error) {};
 
-    this.discoverCharacteristics = function (callback) {
+    this.discoverCharacteristics = function(callback) {
         if (callback) this.ondiscoverCharacteristics = callback;
 
         if (this.characteristics && Object.size(this.characteristics) > 0) {
@@ -49,7 +48,7 @@ function Service(gattip, peripheral, uuid) {
         }
     };
 
-    this.ondiscoverCharacteristics = function (params) {
+    this.ondiscoverCharacteristics = function(params) {
         for (var index in params[C.kCharacteristics]) {
             var characteristicUUID = params[C.kCharacteristics][index][C.kCharacteristicUUID];
             var characteristic = this.characteristics[characteristicUUID];
@@ -72,16 +71,16 @@ function Service(gattip, peripheral, uuid) {
         }
     };
 
-    this.discoverCharacteristicsRequest = function (cookie) {
-        if(_gattip.discoverCharacteristicsRequest){
+    this.discoverCharacteristicsRequest = function(cookie) {
+        if (_gattip.discoverCharacteristicsRequest) {
             _gattip.discoverCharacteristicsRequest(cookie, _peripheral, this);
-        }else{
+        } else {
             throw Error('discoverCharacteristicsRequest method not implemented by server');
         }
     };
 
-    this.discoverCharacteristicsResponse = function (cookie, error) {
-        if(!error){
+    this.discoverCharacteristicsResponse = function(cookie, error) {
+        if (!error) {
             params = {};
             var charsArray = [];
 
@@ -98,12 +97,12 @@ function Service(gattip, peripheral, uuid) {
             params[C.kServiceUUID] = this.uuid;
 
             _gattip.write(C.kGetCharacteristics, params, cookie);
-        }else{
+        } else {
             _gattip.sendErrorResponse(cookie, C.kGetCharacteristics, kError32603, error);
-        }        
+        }
     };
 
-    this.addCharacteristic = function (characteristicUUID) {
+    this.addCharacteristic = function(characteristicUUID) {
         var characteristic = new Characteristic(_gattip, _peripheral, this, characteristicUUID);
         this.characteristics[characteristic.uuid] = characteristic;
 
@@ -114,4 +113,3 @@ function Service(gattip, peripheral, uuid) {
 if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== 'undefined')) {
     exports.Service = Service;
 }
-

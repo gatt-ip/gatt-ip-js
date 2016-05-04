@@ -7,6 +7,7 @@ function Peripheral(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData
     }
 
     var _gattip = gattip;
+    this.uuid = uuid;
     this.manufacturerData = {};
     this.serviceData = {};
     this.serviceUUIDs = [];
@@ -35,17 +36,15 @@ function Peripheral(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData
         return false;
     }
 
-    this.updatePeripheral = function(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData) {
-        this.Constructor(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData);
+    this.updatePeripheral = function(name, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData) {
+        this.init(name, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData);
     }
 
-    this.Constructor = function(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData) {
+    this.init = function(name, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData) {
 
         var flag = true;
-        _gattip = gattip;
 
         this.name = name;
-        this.uuid = uuid;
         this.addr = addr;
         this.rssi = rssi;
         this.txpowerLevel = txPwr;
@@ -96,7 +95,7 @@ function Peripheral(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData
         }
 
         if ((typeof mfrData != 'undefined') && (Object.prototype.toString.call(mfrData) === '[object Object]')) {
-            if (this.manufacturerData && this.manufacturerData.size > 0) {
+            if (this.manufacturerData && Object.size(this.manufacturerData) > 0) {
                 for (var mfrId in mfrData) {
                     this.manufacturerData[mfrId] = mfrData[mfrId];
                 }
@@ -106,7 +105,7 @@ function Peripheral(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData
         }
 
         if ((typeof serviceData != 'undefined') && (Object.prototype.toString.call(serviceData) === '[object Object]')) {
-            if (this.serviceData && this.serviceData.size > 0) {
+            if (this.serviceData && Object.size(this.serviceData) > 0) {
                 for (var serUUID in serviceData) {
                     this.serviceData[serUUID] = serviceData[serUUID];
                 }
@@ -127,6 +126,8 @@ function Peripheral(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData
 
     };
 
+    this.init(name, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData);
+
     this.getManufacturerDataById = function(mfrId) {
         if ('number' === typeof mfrId) {
             mfrId = '' + Number(mfrId).toString(16);
@@ -142,8 +143,6 @@ function Peripheral(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData
     this.getServiceDataByUUID = function(serviceUUID) {
         return this.serviceData[serviceUUID];;
     };
-
-    this.Constructor(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData, serviceData, addata, scanData);
 
     this.connect = function(callback) {
         if (callback) this.onconnect = callback;

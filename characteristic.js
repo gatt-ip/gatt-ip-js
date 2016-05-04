@@ -15,8 +15,9 @@ function Characteristic(gattip, peripheral, service, uuid) {
     this.characteristicName = '';
     this.isNotifying = false;
 
-    Object.size = function (obj) {
-        var size = 0, key;
+    Object.size = function(obj) {
+        var size = 0,
+            key;
         for (key in obj) {
             if (obj.hasOwnProperty(key)) size++;
         }
@@ -31,7 +32,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
     }
 
 
-    this.discoverDescriptors = function (callback) {
+    this.discoverDescriptors = function(callback) {
         if (callback) this.ondiscoverDescriptors = callback;
 
         if (this.descriptors && Object.size(this.descriptors) > 0) {
@@ -45,15 +46,15 @@ function Characteristic(gattip, peripheral, service, uuid) {
         }
     };
 
-    this.ondiscoverDescriptors = function (params) {
-        if(typeof params[C.kDescriptors] !== 'undefined'){
+    this.ondiscoverDescriptors = function(params) {
+        if (typeof params[C.kDescriptors] !== 'undefined') {
             for (var index in params[C.kDescriptors]) {
                 var descriptorUUID = params[C.kDescriptors][index][C.kDescriptorUUID];
                 var descriptor = this.descriptors[descriptorUUID];
                 if (!descriptor) {
                     descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
                 }
-                
+
                 var props = params[C.kDescriptors][index][C.kProperties];
                 for (var apindex in C.AllProperties) {
                     descriptor.properties[C.AllProperties[apindex]] = {
@@ -67,7 +68,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         }
     };
 
-    this.read = function (callback) {
+    this.read = function(callback) {
         if (callback) this.onread = callback;
         var params = {};
         params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -76,12 +77,12 @@ function Characteristic(gattip, peripheral, service, uuid) {
         _gattip.write(C.kGetCharacteristicValue, params);
     };
 
-    this.onread = function (params) {
+    this.onread = function(params) {
         this.isNotifying = params[C.kIsNotifying];
         this.value = params[C.kValue];
     };
 
-    this.write = function (data, callback) {
+    this.write = function(data, callback) {
         var restype;
         if (this.properties["WriteWithoutResponse"].enabled == 1 || this.properties["Indicate"].enabled == 1) {
             restype = C.kWriteWithoutResponse;
@@ -91,7 +92,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         this.writeWithResType(data, restype, callback);
     };
 
-    this.writeWithResType = function (data, restype, callback) {
+    this.writeWithResType = function(data, restype, callback) {
         if (callback) this.onwrite = callback;
 
         var params = {};
@@ -103,10 +104,9 @@ function Characteristic(gattip, peripheral, service, uuid) {
         _gattip.write(C.kWriteCharacteristicValue, params);
     };
 
-    this.onwrite = function (params, error) {
-    };
+    this.onwrite = function(params, error) {};
 
-    this.notify = function (value, callback) {
+    this.notify = function(value, callback) {
         if (callback) this.onread = callback;
 
         var params = {};
@@ -119,7 +119,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         _gattip.write(C.kSetValueNotification, params);
     };
 
-    this.indicate = function (callback) {
+    this.indicate = function(callback) {
         if (callback) this.onread = callback;
 
         var params = {};
@@ -130,7 +130,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         _gattip.write(C.kGetCharacteristicValue, params);
     };
 
-    this.broadcast = function (callback) {
+    this.broadcast = function(callback) {
         if (callback) this.onread = callback;
 
         var params = {};
@@ -141,7 +141,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         _gattip.write(C.kGetCharacteristicValue, params);
     };
 
-    this.discoverDescriptorsRequest = function (cookie) {
+    this.discoverDescriptorsRequest = function(cookie) {
         if (_gattip.discoverDescriptorsRequest) {
             _gattip.discoverDescriptorsRequest(cookie, _peripheral, _service, this);
         } else {
@@ -149,7 +149,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         }
     };
 
-    this.discoverDescriptorsResponse = function (cookie, error) {
+    this.discoverDescriptorsResponse = function(cookie, error) {
         if (!error) {
             params = {};
             var discArray = [];
@@ -173,7 +173,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         }
     };
 
-    this.readCharacteristicValueRequest = function (cookie, params) {
+    this.readCharacteristicValueRequest = function(cookie, params) {
         if (_gattip.readCharacteristicValueRequest) {
             _gattip.readCharacteristicValueRequest(cookie, _peripheral, _service, this);
         } else {
@@ -181,7 +181,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         }
     };
 
-    this.writeCharacteristicValueRequest = function (cookie, params) {
+    this.writeCharacteristicValueRequest = function(cookie, params) {
         if (_gattip.writeCharacteristicValueRequest) {
             _gattip.writeCharacteristicValueRequest(cookie, _peripheral, _service, this, params[C.kValue]);
         } else {
@@ -189,7 +189,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         }
     };
 
-    this.enableNotificationsRequest = function (cookie, params) {
+    this.enableNotificationsRequest = function(cookie, params) {
         if (_gattip.enableNotificationsRequest) {
             _gattip.enableNotificationsRequest(cookie, _peripheral, _service, this, params[C.kValue]);
         } else {
@@ -197,7 +197,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         }
     };
 
-    this.respondToReadRequest = function (cookie, error) {
+    this.respondToReadRequest = function(cookie, error) {
 
         if (error) {
             this.sendErrorResponse(cookie, C.kGetCharacteristicValue, C.kError32603, 'Failed to read the Characteristic value');
@@ -213,7 +213,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
         }
     };
 
-    this.respondToWriteRequest = function (cookie, error) {
+    this.respondToWriteRequest = function(cookie, error) {
 
         if (error) {
             this.sendErrorResponse(cookie, C.kWriteCharacteristicValue, C.kError32603, 'Failed to write the Characteristic value');
@@ -240,29 +240,29 @@ function Characteristic(gattip, peripheral, service, uuid) {
         _gattip.write(C.kSetValueNotification, params, cookie);
     }
 
-    this.respondWithNotification = function (cookie, value) {
+    this.respondWithNotification = function(cookie, value) {
         this.value = value;
         respondNotify(cookie, this);
     };
 
-    this.respondToChangeNotification = function (cookie, isNotifying) {
+    this.respondToChangeNotification = function(cookie, isNotifying) {
         this.isNotifying = isNotifying;
         respondNotify(cookie, this);
     };
 
-    this.addDescriptor = function (descriptorUUID) {
+    this.addDescriptor = function(descriptorUUID) {
         var descriptor = new Descriptor(_gattip, _peripheral, _service, this, descriptorUUID);
         this.descriptors[descriptor.uuid] = descriptor;
 
         return descriptor;
     };
 
-    this.updateValue = function (value) {
+    this.updateValue = function(value) {
         this.value = value;
         return this;
     };
 
-    this.updateProperties = function (properties) {
+    this.updateProperties = function(properties) {
         this.properties = properties;
         return this;
     };

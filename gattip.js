@@ -41,9 +41,7 @@ function GATTIP() {
                 if (response.params && response.params[C.kPeripheralUUID])
                     peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
                 if (peripheral) {
-                    peripheral.updatePeripheral(this,
-                        response.params[C.kPeripheralName],
-                        response.params[C.kPeripheralUUID],
+                    peripheral.updatePeripheral(response.params[C.kPeripheralName],
                         response.params[C.kPeripheralBtAddress],
                         response.params[C.kRSSIkey],
                         response.params[C.kCBAdvertisementDataTxPowerLevel],

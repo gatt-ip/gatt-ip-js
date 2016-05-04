@@ -16,17 +16,17 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         }
     }
 
-    this.updateValue = function (value) {
+    this.updateValue = function(value) {
         this.value = value;
         return this;
     };
 
-    this.updateProperties = function (properties) {
+    this.updateProperties = function(properties) {
         this.properties = properties;
         return this;
     };
 
-    this.read = function (callback) {
+    this.read = function(callback) {
         if (callback) this.onread = callback;
         var params = {};
         params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -36,12 +36,12 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         _gattip.write(C.kGetDescriptorValue, params);
     };
 
-    this.onread = function (params) {
+    this.onread = function(params) {
         this.isNotifying = params[C.kIsNotifying];
         this.value = params[C.kValue];
     };
 
-    this.write = function (data, callback) {
+    this.write = function(data, callback) {
         if (callback) this.onwrite = callback;
         var params = {};
         params[C.kPeripheralUUID] = _peripheral.uuid;
@@ -52,10 +52,9 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         _gattip.write(C.kWriteDescriptorValue, params);
     };
 
-    this.onwrite = function (params) {
-    };
+    this.onwrite = function(params) {};
 
-    this.readDescriptorValueRequest = function (cookie, params) {
+    this.readDescriptorValueRequest = function(cookie, params) {
         if (_gattip.readDescriptorValueRequest) {
             _gattip.readDescriptorValueRequest(cookie, _peripheral, _service, _characteristic, this);
         } else {
@@ -63,7 +62,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         }
     };
 
-    this.writeDescriptorValueRequest = function (cookie, params) {
+    this.writeDescriptorValueRequest = function(cookie, params) {
         if (_gattip.writeDescriptorValueRequest) {
             _gattip.writeDescriptorValueRequest(cookie, _peripheral, _service, _characteristic, this, params[C.kValue]);
         } else {
@@ -71,7 +70,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         }
     };
 
-    this.respondToReadDescriptorValueRequest = function (cookie, error) {
+    this.respondToReadDescriptorValueRequest = function(cookie, error) {
 
         if (error) {
             this.sendErrorResponse(cookie, C.kGetDescriptorValue, C.kError32603, 'Failed to read the descriptor value');
@@ -88,7 +87,7 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
         }
     };
 
-    this.respondToWriteDescriptorValueRequest = function (cookie, error) {
+    this.respondToWriteDescriptorValueRequest = function(cookie, error) {
 
         if (error) {
             this.sendErrorResponse(cookie, C.kWriteDescriptorValue, C.kError32603, 'Failed to write the descriptor value');
@@ -110,4 +109,3 @@ function Descriptor(gattip, peripheral, service, characteristic, uuid) {
 if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== 'undefined')) {
     exports.Descriptor = Descriptor;
 }
-
