@@ -546,9 +546,9 @@ function Peripheral(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData
         return size;
     };
 
-    Array.prototype.pushUnique = function(item) {
-        if (this.indexOf(item) == -1) {
-            this.push(item);
+    function pushUnique(array, item) {
+        if (array.indexOf(item) == -1) {
+            array.push(item);
             return true;
         }
         return false;
@@ -635,7 +635,7 @@ function Peripheral(gattip, name, uuid, addr, rssi, txPwr, serviceUUIDs, mfrData
         if ((typeof serviceUUIDs != 'undefined') && (Object.prototype.toString.call(serviceUUIDs) === '[object Array]')) {
             if (this.serviceUUIDs && this.serviceUUIDs.length > 0) {
                 for (var id = 0; id < serviceUUIDs.length; id++) {
-                    this.serviceUUIDs.pushUnique(serviceUUIDs[id]);
+                    pushUnique(this.serviceUUIDs, serviceUUIDs[id]);
                 }
             } else {
                 this.serviceUUIDs = serviceUUIDs;
