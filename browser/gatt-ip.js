@@ -261,6 +261,16 @@ function GATTIP() {
 
     this.oninit = function(params) {};
 
+    this.authenticate = function(token) {
+        params = {};
+        params.type = C.kAuthenticate;
+        params[C.kDeviceAccessToken] = token;
+        params.id = C.id.toString();
+
+        C.id += 1;
+        this.send(JSON.stringify(params));
+    };
+    
     this.configure = function(pwrAlert, centralID, callback) {
         if (callback) this.onconfigure = callback;
 
@@ -1289,6 +1299,7 @@ var C = {
     kMessageField: "message",
     kResult: "result",
     kIdField: "id",
+    kSessionIdField: 'session_id',
     kConfigure: "aa",
     kScanForPeripherals: "ab",
     kStopScanning: "ac",
@@ -1391,7 +1402,9 @@ var C = {
     kGAP_ADTYPE_MANUFACTURER_SPECIFIC: "FF",
     kGAP_ADTYPE_16BIT_SERVICE_DATA: "16",
     id: 1,
-    authenticate: 'authenticate',
+    authenticate                : 'authenticate',
+    kAuthenticate               : 'aut',
+    kDeviceAccessToken          : 'dat',
     AllProperties: ["Broadcast", "Read", "WriteWithoutResponse", "Write", "Notify", "Indicate", "AuthenticatedSignedWrites", "ExtendedProperties", "NotifyEncryptionRequired", "IndicateEncryptionRequired"]
 };
 

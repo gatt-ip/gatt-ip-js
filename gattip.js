@@ -261,6 +261,16 @@ function GATTIP() {
 
     this.oninit = function(params) {};
 
+    this.authenticate = function(token) {
+        params = {};
+        params.type = C.kAuthenticate;
+        params[C.kDeviceAccessToken] = token;
+        params.id = C.id.toString();
+
+        C.id += 1;
+        this.send(JSON.stringify(params));
+    };
+    
     this.configure = function(pwrAlert, centralID, callback) {
         if (callback) this.onconfigure = callback;
 

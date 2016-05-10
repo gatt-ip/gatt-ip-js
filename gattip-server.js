@@ -246,12 +246,15 @@ function GattIpServer() {
         params[C.kError] = error;
         this.write(method, undefined, cookie, error);
     };
-
+    
     this.authenticate = function(token) {
-        this.send(JSON.stringify({
-            type: C.authenticate,
-            access_token: token
-        }));
+        params = {};
+        params.type = C.kAuthenticate;
+        params[C.kDeviceAccessToken] = token;
+        params.id = C.id.toString();
+
+        C.id += 1;
+        this.send(JSON.stringify(params));
     };
 
     this.configureRequest = function() {
