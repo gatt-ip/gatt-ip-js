@@ -59,7 +59,7 @@ function GattIpServer() {
             return;
         }
 
-        if (message.result && message.result == C.kMessage) {
+        if (message.result && ( (message.result == C.kMessage) || (message.result == C.authenticate) ) ){
             this.onauthenticate(message.params, message.error);
             return;
         }
@@ -249,12 +249,15 @@ function GattIpServer() {
     
     this.authenticate = function(token) {
         params = {};
-        params.type = C.kAuthenticate;
         params[C.kDeviceAccessToken] = token;
-        params.id = C.id.toString();
 
+        var message = {};
+        message.method = C.kAuthenticate;        
+        message.params = params;        
+        message.id = C.id.toString();
         C.id += 1;
-        this.send(JSON.stringify(params));
+
+        this.send(JSON.stringify(message));
     };
 
     this.configureRequest = function() {

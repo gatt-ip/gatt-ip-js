@@ -208,8 +208,9 @@ function GATTIP() {
                 }
                 this.onupdateRSSI(gObject.peripheral, response.error);
                 break;
+            case C.kAuthenticate:            
             case C.kMessage:
-                this.onMessage(response.params, response.error);
+                this.onauthenticate(response.params, response.error);
                 break;
             default:
                 this.onerror('invalid response');
@@ -263,12 +264,15 @@ function GATTIP() {
 
     this.authenticate = function(token) {
         params = {};
-        params.type = C.kAuthenticate;
         params[C.kDeviceAccessToken] = token;
-        params.id = C.id.toString();
 
+        var message = {};
+        message.method = C.kAuthenticate;        
+        message.params = params;        
+        message.id = C.id.toString();
         C.id += 1;
-        this.send(JSON.stringify(params));
+
+        this.send(JSON.stringify(message));
     };
     
     this.configure = function(pwrAlert, centralID, callback) {
@@ -955,7 +959,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
     };
 
     this.ondiscoverDescriptors = function(params) {
-        if (typeof params[C.kDescriptors] !== 'undefined') {
+        if (typeof params !== 'undefined') {
             for (var index in params[C.kDescriptors]) {
                 var descriptorUUID = params[C.kDescriptors][index][C.kDescriptorUUID];
                 var descriptor = this.descriptors[descriptorUUID];
@@ -1021,7 +1025,8 @@ function Characteristic(gattip, peripheral, service, uuid) {
         params[C.kPeripheralUUID] = _peripheral.uuid;
         params[C.kServiceUUID] = _service.uuid;
         params[C.kCharacteristicUUID] = this.uuid;
-        params[C.kValue] = value;
+        params[C.kValue] = value; //TODO : Remove the kValue key
+        params[C.kIsNotifying] = value;
         this.isNotifying = value;
 
         _gattip.write(C.kSetValueNotification, params);
@@ -1099,7 +1104,7 @@ function Characteristic(gattip, peripheral, service, uuid) {
 
     this.enableNotificationsRequest = function(cookie, params) {
         if (_gattip.enableNotificationsRequest) {
-            _gattip.enableNotificationsRequest(cookie, _peripheral, _service, this, params[C.kValue]);
+            _gattip.enableNotificationsRequest(cookie, _peripheral, _service, this, params[C.kIsNotifying]);
         } else {
             throw Error('enableNotificationsRequest method not implemented by server');
         }
@@ -1297,6 +1302,7 @@ var C = {
     kError: "error",
     kCode: "code",
     kMessageField: "message",
+    kMethod:'method',
     kResult: "result",
     kIdField: "id",
     kSessionIdField: 'session_id',

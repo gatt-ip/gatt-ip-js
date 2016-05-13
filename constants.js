@@ -2,6 +2,7 @@ var C = {
     kError: "error",
     kCode: "code",
     kMessageField: "message",
+    kMethod:'method',
     kResult: "result",
     kIdField: "id",
     kSessionIdField: 'session_id',

@@ -208,8 +208,9 @@ function GATTIP() {
                 }
                 this.onupdateRSSI(gObject.peripheral, response.error);
                 break;
+            case C.kAuthenticate:            
             case C.kMessage:
-                this.onMessage(response.params, response.error);
+                this.onauthenticate(response.params, response.error);
                 break;
             default:
                 this.onerror('invalid response');
@@ -263,12 +264,15 @@ function GATTIP() {
 
     this.authenticate = function(token) {
         params = {};
-        params.type = C.kAuthenticate;
         params[C.kDeviceAccessToken] = token;
-        params.id = C.id.toString();
 
+        var message = {};
+        message.method = C.kAuthenticate;        
+        message.params = params;        
+        message.id = C.id.toString();
         C.id += 1;
-        this.send(JSON.stringify(params));
+
+        this.send(JSON.stringify(message));
     };
     
     this.configure = function(pwrAlert, centralID, callback) {
