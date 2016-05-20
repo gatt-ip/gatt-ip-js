@@ -38,34 +38,37 @@ function GATTIP() {
                 this.onconfigure(response.params, response.error);
                 break;
             case C.kScanForPeripherals:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (peripheral) {
-                    peripheral.updatePeripheral(response.params[C.kPeripheralName],
-                        response.params[C.kPeripheralBtAddress],
-                        response.params[C.kRSSIkey],
-                        response.params[C.kCBAdvertisementDataTxPowerLevel],
-                        response.params[C.kCBAdvertisementDataServiceUUIDsKey],
-                        response.params[C.kCBAdvertisementDataManufacturerDataKey],
-                        response.params[C.kCBAdvertisementDataServiceDataKey],
-                        response.params[C.kAdvertisementDataKey],
-                        response.params[C.kScanRecord]);
-                } else {
-                    peripheral = new Peripheral(this,
-                        response.params[C.kPeripheralName],
-                        response.params[C.kPeripheralUUID],
-                        response.params[C.kPeripheralBtAddress],
-                        response.params[C.kRSSIkey],
-                        response.params[C.kCBAdvertisementDataTxPowerLevel],
-                        response.params[C.kCBAdvertisementDataServiceUUIDsKey],
-                        response.params[C.kCBAdvertisementDataManufacturerDataKey],
-                        response.params[C.kCBAdvertisementDataServiceDataKey],
-                        response.params[C.kAdvertisementDataKey],
-                        response.params[C.kScanRecord]);
+                if (response.params && response.params[C.kPeripheralUUID]){
+                        peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
+                    if (peripheral) {
+                        peripheral.updatePeripheral(response.params[C.kPeripheralName],
+                            response.params[C.kPeripheralBtAddress],
+                            response.params[C.kRSSIkey],
+                            response.params[C.kCBAdvertisementDataTxPowerLevel],
+                            response.params[C.kCBAdvertisementDataServiceUUIDsKey],
+                            response.params[C.kCBAdvertisementDataManufacturerDataKey],
+                            response.params[C.kCBAdvertisementDataServiceDataKey],
+                            response.params[C.kAdvertisementDataKey],
+                            response.params[C.kScanRecord]);
+                    } else {
+                        peripheral = new Peripheral(this,
+                            response.params[C.kPeripheralName],
+                            response.params[C.kPeripheralUUID],
+                            response.params[C.kPeripheralBtAddress],
+                            response.params[C.kRSSIkey],
+                            response.params[C.kCBAdvertisementDataTxPowerLevel],
+                            response.params[C.kCBAdvertisementDataServiceUUIDsKey],
+                            response.params[C.kCBAdvertisementDataManufacturerDataKey],
+                            response.params[C.kCBAdvertisementDataServiceDataKey],
+                            response.params[C.kAdvertisementDataKey],
+                            response.params[C.kScanRecord]);
 
-                    this.peripherals[response.params[C.kPeripheralUUID]] = peripheral;
+                        this.peripherals[response.params[C.kPeripheralUUID]] = peripheral;
+                    }
+                    this.onscan(peripheral, response.error);
+                }else if(response.error){
+                    this.onscan(peripheral, response.error);
                 }
-                this.onscan(peripheral, response.error);
                 break;
             case C.kStopScanning:
                 this.onstopScan(response.error);
