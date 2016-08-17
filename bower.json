@@ -1,6 +1,6 @@
 {
   "name": "gatt-ip-js",
-  "version": "1.6.9",
+  "version": "1.6.9.1",
   "homepage": "https://github.com/gatt-ip/gatt-ip-js",
   "main": "browser/gattip.min.js",
   "author": {
