@@ -17,18 +17,18 @@
     "gatt-ip-js",
     "bluetooth",
     "gateway"
-  ],  
+  ],
   "ignore": [
     "node_modules",
-    "bower_components",    
+    "bower_components",
     "package.json",
-    "lib/"
+    "lib/",
     "characteristic.js",
     "descriptor.js",
     "errors.js",
     "gateway.js",
     "gattip.js",
-    "index.js"
+    "index.js",
     "peripheral.js",
     "service.js"
   ]
