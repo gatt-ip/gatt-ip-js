@@ -1,368 +1,246 @@
-function GATTIP() {
+var ee = require("./lib/event-emitter");
+var InternalError = require("./errors").InternalError;
+var ApplicationError = require("./errors").ApplicationError;
+var GatewayError = require("./errors").GatewayError;
+var MessageHandler = require("./lib/message-handler").MessageHandler;
+var MessageProcessor = require('./lib/message-processor').MessageProcessor;
+var Gateway = require("./gateway").Gateway;
+var helper = require('./lib/message-helper');
+var ServerMessageHandler = require("./lib/server-message-handler").ServerMessageHandler;
 
-    if (typeof process === 'object' && process + '' === '[object process]') {
-        C = require("./constants.js").C;
-        Peripheral = require("./peripheral.js").Peripheral;
-        WebSocket = require('websocket').w3cwebsocket;
+var NODE_CLIENT_SOCKET_CONFIG = {
+    keepalive:true,
+    dropConnectionOnKeepaliveTimeout:true,
+    keepaliveInterval:10000, // ping every 10 seconds
+    keepaliveGracePeriod:10000 // time out if pong is not received after 10 seconds
+};
+
+function GATTIP() {
+    ee.instantiateEmitter(this);
+
+
+    this.traceEnabled = false;
+    var self = this;
+    var stream;
+    var processor;
+    var mh;
+    var smh;
+    var gateway;
+    this.getGateway = function() {
+        return gateway;
+    };
+
+    this.traceMessage = function(message, prefix) {
+        if (self.traceEnabled) {
+            if ('object' == typeof message) {
+                message = JSON.stringify(message);
+            }
+            console.log(prefix? prefix : "", message);
+        }
+    };
+
+    function sendError(err) {
+        self.emit('error', err);
     }
 
-    var client;
-    this.peripherals = {};
-
-    this.init = function(url, callback) {
-
-        if (callback) this.oninit = callback;
-
-        this.socket = new WebSocket(url);
-
-        this.socket.onopen = function() {
-            this.initWithClient(this.socket);
-            if (this.oninit) {
-                this.oninit();
-            }
-        }.bind(this);
-    };
-
-    this.initWithClient = function(_client) {
-        this.state = C.kUnknown;
-        client = _client;
-        client.onmessage = this.processMessage.bind(this);
-    };
-
-    this.processMessage = function(mesg) {
-        var response = JSON.parse(mesg.data);
-        var peripheral, service, characteristic, descriptor, gObject = {};
-
-        switch (response.result) {
-            case C.kConfigure:
-                this.onconfigure(response.params, response.error);
-                break;
-            case C.kScanForPeripherals:
-                if (response.params && response.params[C.kPeripheralUUID]){
-                        peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                    if (peripheral) {
-                        peripheral.updatePeripheral(response.params[C.kPeripheralName],
-                            response.params[C.kPeripheralBtAddress],
-                            response.params[C.kRSSIkey],
-                            response.params[C.kCBAdvertisementDataTxPowerLevel],
-                            response.params[C.kCBAdvertisementDataServiceUUIDsKey],
-                            response.params[C.kCBAdvertisementDataManufacturerDataKey],
-                            response.params[C.kCBAdvertisementDataServiceDataKey],
-                            response.params[C.kAdvertisementDataKey],
-                            response.params[C.kScanRecord]);
-                    } else {
-                        peripheral = new Peripheral(this,
-                            response.params[C.kPeripheralName],
-                            response.params[C.kPeripheralUUID],
-                            response.params[C.kPeripheralBtAddress],
-                            response.params[C.kRSSIkey],
-                            response.params[C.kCBAdvertisementDataTxPowerLevel],
-                            response.params[C.kCBAdvertisementDataServiceUUIDsKey],
-                            response.params[C.kCBAdvertisementDataManufacturerDataKey],
-                            response.params[C.kCBAdvertisementDataServiceDataKey],
-                            response.params[C.kAdvertisementDataKey],
-                            response.params[C.kScanRecord]);
-
-                        this.peripherals[response.params[C.kPeripheralUUID]] = peripheral;
-                    }
-                    this.onscan(peripheral, response.error);
-                }else if(response.error){
-                    this.onscan(peripheral, response.error);
-                }
-                break;
-            case C.kStopScanning:
-                this.onstopScan(response.error);
-                break;
-            case C.kConnect:
-                if (response.params && response.params[C.kPeripheralUUID])
-                    peripheral = this.peripherals[response.params[C.kPeripheralUUID]];
-                if (!response.error) {
-                    if (peripheral) {
-                        peripheral.ondiscoverServices(response.params, response.error);
-                        for (var suuid in response.params[C.kServices]) {
-                            service = peripheral.services[suuid];
-                            if (service) {
-                                service.ondiscoverCharacteristics(response.params[C.kServices][suuid], response.error);
-                                for (var cuuid in service.characteristics) {
-                                    characteristic = service.characteristics[cuuid];
-                                    if (characteristic) {
-                                        characteristic.ondiscoverDescriptors(response.params[C.kServices][service.uuid][C.kCharacteristics][cuuid], response.error);
-                                    } else {
-                                        this.onerror("Characteristic not found");
-                                    }
-                                }
-                            } else {
-                                this.onerror("Service not found");
-                            }
-                        }
-                        peripheral.onconnect();
-                    } else {
-                        this.onerror("Peripheral not found");
-                    }
-                } else {
-                    if (peripheral)
-                        peripheral.onconnect(response.error);
-                }
-                this.onconnect(peripheral, response.error);
-                break;
-            case C.kDisconnect:
-                if (response.params) {
-                    gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.peripheral) {
-                        gObject.peripheral.ondisconnect(response.error);
-                    }
-                }
-                this.ondisconnect(gObject.peripheral, response.error);
-                break;
-            case C.kCentralState:
-                this.state = response.params[C.kState];
-                this.onstate(response.params[C.kState], response.error);
-                break;
-            case C.kGetServices:
-                if (response.params) {
-                    gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.peripheral) {
-                        gObject.peripheral.ondiscoverServices(response.params, response.error);
-                    }
-                }
-                this.ondiscoverServices(gObject.peripheral, response.error);
-                break;
-            case C.kGetCharacteristics:
-                if (response.params) {
-                    gObject = this.getObjects('S', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.service) {
-                        gObject.service.ondiscoverCharacteristics(response.params, response.error);
-                    }
-                }
-                this.ondiscoverCharacteristics(gObject.peripheral, gObject.service, response.error);
-                break;
-            case C.kGetDescriptors:
-                if (response.params) {
-                    gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.characteristic) {
-                        gObject.characteristic.ondiscoverDescriptors(response.params, response.error);
-                    }
-                }
-                this.ondiscoverDescriptors(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
-                break;
-            case C.kGetCharacteristicValue:
-                if (response.params) {
-                    gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.characteristic) {
-                        gObject.characteristic.onread(response.params, response.error);
-                    }
-                }
-                this.onupdateValue(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
-                break;
-            case C.kWriteCharacteristicValue:
-                if (response.params) {
-                    gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.characteristic) {
-                        gObject.characteristic.onwrite(response.params, response.error);
-                    }
-                }
-                this.onwriteValue(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
-                break;
-            case C.kSetValueNotification:
-                if (response.params) {
-                    gObject = this.getObjects('C', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.characteristic) {
-                        gObject.characteristic.isNotifying = response.params[C.kIsNotifying];
-                        gObject.characteristic.value = response.params[C.kValue];
-                    }
-                }
-                this.onupdateValue(gObject.peripheral, gObject.service, gObject.characteristic, response.error);
-                break;
-            case C.kGetDescriptorValue:
-                if (response.params) {
-                    gObject = this.getObjects('D', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.descriptor) {
-                        gObject.descriptor.onread(response.params, response.error);
-                    }
-                }
-                this.ondescriptorRead(gObject.peripheral, gObject.service, gObject.characteristic, gObject.descriptor, response.error);
-                break;
-            case C.kWriteDescriptorValue:
-                if (response.params) {
-                    gObject = this.getObjects('D', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.descriptor) {
-                        gObject.descriptor.onwrite(response.params, response.error);
-                    }
-                }
-                this.ondescriptorWrite(gObject.peripheral, gObject.service, gObject.characteristic, gObject.descriptor, response.error);
-                break;
-            case C.kGetRSSI:
-                if (response.params) {
-                    gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.peripheral) {
-                        gObject.peripheral.name = response.params[C.kPeripheralName];
-                        gObject.peripheral.rssi = response.params[C.kRSSIkey];
-                    }
-                }
-                this.onupdateRSSI(gObject.peripheral, response.error);
-                break;
-            case C.kPeripheralNameUpdate:
-                if (response.params) {
-                    gObject = this.getObjects('P', response.params[C.kPeripheralUUID], response.params[C.kServiceUUID], response.params[C.kCharacteristicUUID], response.params[C.kDescriptorUUID]);
-                    if (gObject.peripheral) {
-                        gObject.peripheral.name = response.params[C.kPeripheralName];
-                        gObject.peripheral.rssi = response.params[C.kRSSIkey];
-                    }
-                }
-                this.onupdateRSSI(gObject.peripheral, response.error);
-                break;
-            case C.kAuthenticate:            
-            case C.kMessage:
-                this.onauthenticate(response.params, response.error);
-                break;
-            default:
-                this.onerror('invalid response');
-
-                this.message = response;
+    this.getServerMessageHandler = function() {
+        if(!smh) {
+            sendError(new GatewayError("Server Message Handler is not Ready"));
         }
+        return smh;
     };
 
-    this.getObjects = function(type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
-
-        var resultObj = {};
-
-        resultObj.peripheral = this.peripherals[peripheralUUID];
-        if (resultObj.peripheral) {
-            if (type === 'P') {
-                return resultObj;
-            }
-            resultObj.service = resultObj.peripheral.services[serviceUUID];
-            if (resultObj.service) {
-                if (type === 'S') {
-                    return resultObj;
-                }
-                resultObj.characteristic = resultObj.service.characteristics[characteristicUUID];
-                if (resultObj.characteristic) {
-                    if (type === 'C') {
-                        return resultObj;
-                    }
-                    resultObj.descriptor = resultObj.characteristic.descriptors[descriptorUUID];
-                    if (resultObj.descriptor) {
-                        if (type === 'D') {
-                            return resultObj;
-                        } else {
-                            console.log('getObjects: Type is not mentioned');
-                        }
-                    } else {
-                        this.onerror('Descriptor not found');
-                    }
-                } else {
-                    this.onerror('Characteristic not found');
-                }
-            } else {
-                this.onerror('Service not found');
-            }
+    /** callback handling helpers */
+    this.fulfill = function (cb, arg1, arg2, arg3, arg4, arg5) {
+        if (typeof cb == 'object' && typeof cb.fulfill == 'function') {
+            cb.fulfill(arg1, arg2, arg3, arg4, arg5);
+        } else if (typeof cb == 'function') {
+            cb(arg1, arg2, arg3, arg4, arg5);
+        } // else no callback needed.
+    };
+    this.reject = function (cb, error) {
+        if (typeof cb == 'object' && typeof cb.reject == 'function') {
+            cb.reject(error);
         } else {
-            this.onerror('Peripheral not found');
-        }
-        return resultObj;
-    };
-
-    this.oninit = function(params) {};
-
-    this.authenticate = function(token) {
-        params = {};
-        params[C.kDeviceAccessToken] = token;
-
-        var message = {};
-        message.method = C.kAuthenticate;        
-        message.params = params;        
-        message.id = C.id.toString();
-        C.id += 1;
-
-        this.send(JSON.stringify(message));
-    };
-    
-    this.configure = function(pwrAlert, centralID, callback) {
-        if (callback) this.onconfigure = callback;
-
-        var params = {};
-        params[C.kShowPowerAlert] = pwrAlert;
-        params[C.kIdentifierKey] = centralID;
-        this.write(C.kConfigure, params);
-    };
-
-    this.onconfigure = function(params) {};
-
-    this.scan = function(scanDuplicates, services, callback) {
-        if (callback) this.onscan = callback;
-        this.peripherals = {};
-        var params = {};
-        params[C.kScanOptionAllowDuplicatesKey] = scanDuplicates;
-        params[C.kServiceUUIDs] = services;
-        this.write(C.kScanForPeripherals, params);
-    };
-
-    this.onscan = function(params) {};
-
-    this.stopScan = function(callback) {
-        if (callback) this.onscan = callback;
-
-        var params = {};
-        this.write(C.kStopScanning, params);
-    };
-
-    this.onstopScan = function(params) {};
-
-    this.centralState = function() {
-        var params = {};
-        this.write(C.kCentralState, params);
-    };
-
-    this.onstate = function(state) {};
-
-    this.onerror = function(err_msg) {
-        console.log(err_msg);
-    };
-
-    this.close = function(callback) {
-        if (client) {
-            client.close();
+            sendError(error);
         }
     };
 
-    this.onclose = function(params, error) {};
+    function guardedProcessMessage(doParse, message, handlerFunc) {
+        try {
+            if (doParse) {
+                message = JSON.parse(message);
+            }
+            handlerFunc(message);
+        } catch (error) {
+            sendError(error);
+        }
+    }
 
-    this.onconnect = function(params) {};
-    this.ondisconnect = function(params) {};
-    this.ondiscoverServices = function(params) {};
-    this.ondiscoverCharacteristics = function(params) {};
-    this.ondiscoverDescriptors = function(params) {};
-    this.onupdateValue = function(params) {};
-    this.onwriteValue = function(params) {};
-    this.onupdateRSSI = function(peripheral) {};
-    this.onMessage = function(params) {};
-    this.ondescriptorRead = function(peripheral, service, characteristic, descriptor, error) {};
-    this.ondescriptorWrite = function(peripheral, service, characteristic, descriptor, error) {};
+    /**
+     * Opens a connection to the gateway, given the configuration parameters
+     * @param config
+     *  url: WebSocket URL to open. This or stream is required to issue an open()
+     *  stream: Stream object implementing send() and close(), onMessage()
+     */
+    this.open = function (config) {
+        var gw = new Gateway(this, config.scanFilters);
+        processor = new MessageProcessor(this);
+        mh = new MessageHandler(this, gw);
+        smh = new ServerMessageHandler(this, gw);
 
-    this.write = function(method, params, id) {
-        var mesg = {};
-        mesg.jsonrpc = "2.0";
-        mesg.method = method;
+        function waitReady(config) {
+            if (config.isServer) {
+                processor.on('request', function (message) {
+                    self.traceMessage(message, '<req:');
+                    guardedProcessMessage(false, message, smh.processMessage)
+                });
+                processor.on('indication', function (message) {
+                    sendError(new ApplicationError("Received an indication on a server stream:" + JSON.stringify(message)));
+                });
+                gateway = gw;
+                self.emit('ready', gw);
+            } else {
+                gw.configure(function () {
+                    gw.centralState(function () {
+                        if (!gw.isPoweredOn()) {
+                            console.log('Bluetooth not power on :(');
+                            self.emit('state', 'Bluetooth not power on');
+                            var statePoll = setInterval(function() {
+                                gw.centralState(function () {
+                                    if (gw.isPoweredOn()) {
+                                        clearInterval(statePoll);
+                                        emitGateway();
+                                    }
+                                });
+                            },500);
+                        }else if(gw.isPoweredOn()){
+                            emitGateway();
+                        }
+                    });
+                });
+            }
+        }
+
+        function emitGateway(){
+            processor.on('indication', function (message) {
+                self.traceMessage(message, '<ind:');
+                guardedProcessMessage(false, message, mh.handleIndication)
+            });
+            processor.on('request', function (message) {
+                sendError(new InternalError("Received a request on a client stream:" +  JSON.stringify(message)));
+            });
+            gateway = gw;
+            self.emit('ready', gw);
+        }
+
+        function doOpen(config) {
+            if (config.token) {
+                gw._authenticate(function () {
+                    waitReady(config);
+                }, config.token,
+                config.version);
+            } else {
+                waitReady(config);
+            }
+        }
+
+        if (config.trace === true) {
+            self.traceEnabled = true;
+        }
+        if (config.url) {
+            var WebSocket;
+            if (typeof window == 'object') {
+                WebSocket = window.WebSocket;
+            } else {
+                WebSocket = require('websocket').w3cwebsocket;
+            }
+            stream = new WebSocket(config.url, undefined, undefined, undefined, undefined, NODE_CLIENT_SOCKET_CONFIG);
+            stream.onopen = function () {
+                doOpen(config);
+            };
+            stream.onclose = function (error) {
+                self.emit('onclose', error);
+            };
+            stream.onerror = function (error) {
+                self.emit('onerror', error);
+            };
+
+        } else if (config.stream) {
+            stream = config.stream;
+            doOpen(config);
+        } else {
+            throw new ApplicationError("URL or stream implementing a socket interface is required");
+        }
+
+        stream.onmessage = function (streamMessage) {
+            guardedProcessMessage(true, streamMessage.data, processor.onMessageReceived);
+        };
+
+        processor.on('response', function (message, ctxt) {
+            self.traceMessage(message, '<rsp:');
+            try {
+                if (message.error) {
+                    self.reject(ctxt.cb, new GatewayError(message.error));
+                } else {
+                    if (ctxt.handler) {
+                        // handler is responsible to fulfill
+                        ctxt.handler(message.params);
+                    } else {
+                        self.fulfill(ctxt.cb);
+                    }
+                }
+            } catch (error) {
+                self.reject(ctxt.cb, error);
+            }
+        });
+
+        processor.on('error', function (error) {
+            self.emit('error', error);
+        });
+    };
+
+    this.close = function () {
+        if (stream) {
+            stream.close();
+        }
+    };
+
+
+    // INTERNAL ONLY
+
+    this.request = function (method, params, userCb, handler) {
+        var ctxt = mh.createUserContext(method, params, userCb, handler);
+        var msg = ctxt.originalMessage;
+        processor.register(msg, ctxt);
+        self.traceMessage(msg, '>req:');
+        stream.send(JSON.stringify(msg));
+    };
+
+    this.respond = function (cookie, params) {
+        var msg = mh.wrapResponse(cookie, params);
+        self.traceMessage(msg, '>rsp:');
+        stream.send(JSON.stringify(msg));
+    };
+
+    this.sendIndications = function (result, params){
+        var mesg = {
+            params: params,
+            jsonrpc: "2.0"
+        };
+        mesg.result = result;
         mesg.params = params;
-        mesg.id = C.id.toString();
-        C.id += 1;
-        this.send(JSON.stringify(mesg));
+        self.traceMessage(mesg, '>rsp:');
+        stream.send(JSON.stringify(mesg));
     };
 
-    this.send = function(mesg) {
-        if (!client) {
-            this.onerror("not connected");
-            return;
-        }
-        if (client.readyState !== 1) {
-            console.log('Socket is CLOSED');
-            return;
-        }
-        client.send(mesg);
+    this.sendError = function (mesg){
+        mesg.jsonrpc = "2.0";
+        self.traceMessage(mesg, '>rsp:');
+        stream.send(JSON.stringify(mesg));
     };
 }
 
-if ((typeof process === 'object' && process + '' === '[object process]') && (typeof exports !== 'undefined')) {
-    exports.GATTIP = GATTIP;
-}
+
+ee.makeEmitter(GATTIP);
+module.exports.GATTIP = GATTIP;
