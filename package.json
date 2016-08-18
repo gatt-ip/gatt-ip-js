@@ -1,5 +1,5 @@
 {
-  "name": "gatt-ip",
+  "name": "gatt-ip-js",
   "version": "1.6.9",
   "author": {
     "name": "Nik Markovic",
@@ -9,14 +9,11 @@
   "main": "index.js",
   "ignore": [
     "bowser.json",
-    "browser/"
+    "dist/"
   ],
-  "scripts": {
-    "test": "node gatt-ip"
-  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gatt-ip/gatt-ip-js.git"
+    "url": "https://github.com/gatt-ip/gatt-ip-js"
   },
   "keywords": [
     "gatt-ip",
@@ -28,9 +25,5 @@
   ],
   "dependencies": {
     "websocket": "latest"
-  },
-  "bugs": {
-    "url": "https://github.com/gatt-ip/gatt-ip-js/issues"
-  },
-  "homepage": "https://github.com/gatt-ip/gatt-ip-js#readme"
+  }
 }
