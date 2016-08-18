@@ -1,6 +1,6 @@
 {
   "name": "gatt-ip-js",
-  "version": "1.6.11",
+  "version": "1.6.12",
   "author": {
     "name": "Nik Markovic",
     "email": "Nik.Markovic@vensi.com"
@@ -25,5 +25,10 @@
   ],
   "dependencies": {
     "websocket": "latest"
-  }
+  },
+  "bugs": {
+    "url": "https://github.com/gatt-ip/gatt-ip-js/issues"
+  },
+  "homepage": "https://github.com/gatt-ip/gatt-ip-js#readme"  
+
 }
