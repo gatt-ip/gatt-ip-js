@@ -9,10 +9,10 @@ var helper = require('./lib/message-helper');
 var ServerMessageHandler = require("./lib/server-message-handler").ServerMessageHandler;
 
 var NODE_CLIENT_SOCKET_CONFIG = {
-    keepalive:true,
-    dropConnectionOnKeepaliveTimeout:true,
-    keepaliveInterval:10000, // ping every 10 seconds
-    keepaliveGracePeriod:10000 // time out if pong is not received after 10 seconds
+    keepalive: true,
+    dropConnectionOnKeepaliveTimeout: true,
+    keepaliveInterval: 10000, // ping every 10 seconds
+    keepaliveGracePeriod: 10000 // time out if pong is not received after 10 seconds
 };
 
 function GATTIP() {
@@ -26,16 +26,16 @@ function GATTIP() {
     var mh;
     var smh;
     var gateway;
-    this.getGateway = function() {
+    this.getGateway = function () {
         return gateway;
     };
 
-    this.traceMessage = function(message, prefix) {
+    this.traceMessage = function (message, prefix) {
         if (self.traceEnabled) {
             if ('object' == typeof message) {
                 message = JSON.stringify(message);
             }
-            console.log(prefix? prefix : "", message);
+            console.log(prefix ? prefix : "", message);
         }
     };
 
@@ -43,8 +43,8 @@ function GATTIP() {
         self.emit('error', err);
     }
 
-    this.getServerMessageHandler = function() {
-        if(!smh) {
+    this.getServerMessageHandler = function () {
+        if (!smh) {
             sendError(new GatewayError("Server Message Handler is not Ready"));
         }
         return smh;
@@ -100,21 +100,23 @@ function GATTIP() {
                 });
                 gateway = gw;
                 self.emit('ready', gw);
+            } else if (config.isPassThrough) {
+                emitGateway();
             } else {
                 gw.configure(function () {
                     gw.centralState(function () {
                         if (!gw.isPoweredOn()) {
                             console.log('Bluetooth not power on :(');
                             self.emit('state', 'Bluetooth not power on');
-                            var statePoll = setInterval(function() {
+                            var statePoll = setInterval(function () {
                                 gw.centralState(function () {
                                     if (gw.isPoweredOn()) {
                                         clearInterval(statePoll);
                                         emitGateway();
                                     }
                                 });
-                            },500);
-                        }else if(gw.isPoweredOn()){
+                            }, 500);
+                        } else if (gw.isPoweredOn()) {
                             emitGateway();
                         }
                     });
@@ -122,13 +124,13 @@ function GATTIP() {
             }
         }
 
-        function emitGateway(){
+        function emitGateway() {
             processor.on('indication', function (message) {
                 self.traceMessage(message, '<ind:');
                 guardedProcessMessage(false, message, mh.handleIndication)
             });
             processor.on('request', function (message) {
-                sendError(new InternalError("Received a request on a client stream:" +  JSON.stringify(message)));
+                sendError(new InternalError("Received a request on a client stream:" + JSON.stringify(message)));
             });
             gateway = gw;
             self.emit('ready', gw);
@@ -137,9 +139,9 @@ function GATTIP() {
         function doOpen(config) {
             if (config.token) {
                 gw._authenticate(function () {
-                    waitReady(config);
-                }, config.token,
-                config.version);
+                        waitReady(config);
+                    }, config.token,
+                    config.version);
             } else {
                 waitReady(config);
             }
@@ -223,7 +225,7 @@ function GATTIP() {
         stream.send(JSON.stringify(msg));
     };
 
-    this.sendIndications = function (result, params){
+    this.sendIndications = function (result, params) {
         var mesg = {
             params: params,
             jsonrpc: "2.0"
@@ -234,7 +236,7 @@ function GATTIP() {
         stream.send(JSON.stringify(mesg));
     };
 
-    this.sendError = function (mesg){
+    this.sendError = function (mesg) {
         mesg.jsonrpc = "2.0";
         self.traceMessage(mesg, '>rsp:');
         stream.send(JSON.stringify(mesg));

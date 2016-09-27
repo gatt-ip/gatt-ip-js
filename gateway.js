@@ -27,7 +27,7 @@ function Gateway(gattip, scanFilters) {
                 gattip.fulfill(callback, self);
             } else {
                 console.warn('HACK ALERT: Proxy is supposed to respond with normal error');
-                throw new GatewayError({error:'Auth error'});
+                throw new GatewayError({error: 'Auth error'});
             }
         });
     };
@@ -82,7 +82,7 @@ function Gateway(gattip, scanFilters) {
 
     //
 
-    this.handleScanIndication = function(params) {
+    this.handleScanIndication = function (params) {
         var peripheralUUID = params[C.kPeripheralUUID];
         if (!peripheralUUID) {
             throw new InternalError('Peripheral UUID is not availabvle');
@@ -166,7 +166,7 @@ function Gateway(gattip, scanFilters) {
         return peripheral;
     };
 
-    this.getObjects = function(type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
+    this.getObjects = function (type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
         var resultObj = {};
         resultObj.peripheral = peripherals[peripheralUUID];
         if (resultObj.peripheral) {
@@ -191,26 +191,26 @@ function Gateway(gattip, scanFilters) {
                             throw new InternalError('_getObjects: Argument "type" is required');
                         }
                     } else {
-                        throw new ApplicationError('Descriptor "'+ descriptorUUID + '" not found in the service table');
+                        throw new ApplicationError('Descriptor "' + descriptorUUID + '" not found in the service table');
                     }
                 } else {
-                    throw new ApplicationError('Characteristic "'+ characteristicUUID + '" not found in the service table');
+                    throw new ApplicationError('Characteristic "' + characteristicUUID + '" not found in the service table');
                 }
             } else {
-                throw new ApplicationError('Service "'+ serviceUUID + '" not found in the service table');
+                throw new ApplicationError('Service "' + serviceUUID + '" not found in the service table');
             }
         } else {
-            throw new ApplicationError('Peripheral with id '+ peripheralUUID + ' not found');
+            throw new ApplicationError('Peripheral with id ' + peripheralUUID + ' not found');
         }
     };
 
 
-    this.getObjectsFromMessage = function(type, params) {
+    this.getObjectsFromMessage = function (type, params) {
         if (!params) {
             throw new InternalError("Message parameters are missing");
         }
         try {
-            return self.getObjects(type, params[C.kPeripheralUUID], params[C.kServiceUUID], params[C.kCharacteristicUUID], params[C.kDescriptorUUID] );
+            return self.getObjects(type, params[C.kPeripheralUUID], params[C.kServiceUUID], params[C.kCharacteristicUUID], params[C.kDescriptorUUID]);
         } catch (error) {
             throw new InternalError(error.message, error.detail);
         }

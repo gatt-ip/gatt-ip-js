@@ -35,7 +35,10 @@ function Peripheral(gattip, uuid, name, rssi, addata, scanData) {
 
         if (mfrData) {
             for (var mfrId in mfrData) {
-                manufacturerData[mfrId] = mfrData[mfrId];
+                //TODO: Once we have 2.0, then we can remove toUpperCase()
+                var id = mfrId.toUpperCase();
+                var value = mfrData[mfrId].toUpperCase();
+                manufacturerData[id] = value;
             }
         }
         if (serviceData) {
