@@ -2,7 +2,7 @@
   "name": "gatt-ip-js",
   "version": "1.7.2",
   "homepage": "https://github.com/gatt-ip/gatt-ip-js",
-  "main": "browser/gattip.min.js",
+  "main": "dist/gattip.min.js",
   "author": {
     "name": "Nik Markovic",
     "email": "Nik.Markovic@vensi.com"
