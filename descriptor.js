@@ -13,24 +13,24 @@ function Descriptor(characteristic, uuid) {
     this.type = 'd';
 
     //this.value = undefined;
-    this.characteristic = function () {
+    this.characteristic = function() {
         return characteristic;
     };
-    this.service = function () {
+    this.service = function() {
         return service;
     };
-    this.peripheral = function () {
+    this.peripheral = function() {
         return peripheral;
     };
-    this.gattip = function () {
+    this.gattip = function() {
         return gattip;
     };
 
     // REQUESTS =================================================
 
-    this.readValue = function (callback) {
+    this.readValue = function(callback) {
         var params = helper.populateParams(self);
-        gattip.request(C.kGetDescriptorValue, params, callback, function (params) {
+        gattip.request(C.kGetDescriptorValue, params, callback, function(params) {
             helper.requireFields('readValue', params, [C.kValue], []);
             self.value = params[C.kValue];
             gattip.fulfill(callback, self, self.value);
@@ -38,10 +38,10 @@ function Descriptor(characteristic, uuid) {
     };
 
     //TODO: Nake sure it's not longer than 20 bytes
-    this.writeValue = function (callback, value) {
+    this.writeValue = function(callback, value) {
         var params = helper.populateParams(self);
         helper.requireHexValue('writeValue', 'value', value);
-        gattip.request(C.kWriteDescriptorValue, params, callback, function (params) {
+        gattip.request(C.kWriteDescriptorValue, params, callback, function(params) {
             self.value = value;
             gattip.fulfill(callback, self);
         });
@@ -50,14 +50,14 @@ function Descriptor(characteristic, uuid) {
 
     // SERVER RESPONSES/INDICATIONS  ============================
 
-    this.respondToReadRequest = function (cookie, value) {
+    this.respondToReadRequest = function(cookie, value) {
         var params = helper.populateParams(self);
         helper.requireHexValue('respondToReadRequest', 'value', value);
         params[C.kValue] = value;
         gattip.respond(cookie, params);
     };
 
-    this.respondToWriteRequest = function (cookie) {
+    this.respondToWriteRequest = function(cookie) {
         var params = helper.populateParams(self);
         gattip.respond(cookie, params);
     };
@@ -65,4 +65,3 @@ function Descriptor(characteristic, uuid) {
 
 
 module.exports.Descriptor = Descriptor;
-

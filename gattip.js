@@ -26,11 +26,11 @@ function GATTIP() {
     var mh;
     var smh;
     var gateway;
-    this.getGateway = function () {
+    this.getGateway = function() {
         return gateway;
     };
 
-    this.traceMessage = function (message, prefix) {
+    this.traceMessage = function(message, prefix) {
         if (self.traceEnabled) {
             if ('object' == typeof message) {
                 message = JSON.stringify(message);
@@ -43,7 +43,7 @@ function GATTIP() {
         self.emit('error', err);
     }
 
-    this.getServerMessageHandler = function () {
+    this.getServerMessageHandler = function() {
         if (!smh) {
             sendError(new GatewayError("Server Message Handler is not Ready"));
         }
@@ -51,14 +51,14 @@ function GATTIP() {
     };
 
     /** callback handling helpers */
-    this.fulfill = function (cb, arg1, arg2, arg3, arg4, arg5) {
+    this.fulfill = function(cb, arg1, arg2, arg3, arg4, arg5) {
         if (typeof cb == 'object' && typeof cb.fulfill == 'function') {
             cb.fulfill(arg1, arg2, arg3, arg4, arg5);
         } else if (typeof cb == 'function') {
             cb(arg1, arg2, arg3, arg4, arg5);
         } // else no callback needed.
     };
-    this.reject = function (cb, error) {
+    this.reject = function(cb, error) {
         if (typeof cb == 'object' && typeof cb.reject == 'function') {
             cb.reject(error);
         } else {
@@ -83,7 +83,7 @@ function GATTIP() {
      *  url: WebSocket URL to open. This or stream is required to issue an open()
      *  stream: Stream object implementing send() and close(), onMessage()
      */
-    this.open = function (config) {
+    this.open = function(config) {
         var gw = new Gateway(this, config.scanFilters);
         processor = new MessageProcessor(this);
         mh = new MessageHandler(this, gw);
@@ -91,11 +91,11 @@ function GATTIP() {
 
         function waitReady(config) {
             if (config.isServer) {
-                processor.on('request', function (message) {
+                processor.on('request', function(message) {
                     self.traceMessage(message, '<req:');
                     guardedProcessMessage(false, message, smh.processMessage)
                 });
-                processor.on('indication', function (message) {
+                processor.on('indication', function(message) {
                     sendError(new ApplicationError("Received an indication on a server stream:" + JSON.stringify(message)));
                 });
                 gateway = gw;
@@ -103,14 +103,15 @@ function GATTIP() {
             } else if (config.isPassThrough) {
                 emitGateway();
             } else {
-                gw.configure(function () {
-                    gw.centralState(function () {
+                gw.configure(function() {
+                    gw.centralState(function() {
                         if (!gw.isPoweredOn()) {
                             console.log('Bluetooth not power on :(');
-                            self.emit('state', 'Bluetooth not power on');
-                            var statePoll = setInterval(function () {
-                                gw.centralState(function () {
+                            self.emit('state', gw.isPoweredOn());
+                            var statePoll = setInterval(function() {
+                                gw.centralState(function() {
                                     if (gw.isPoweredOn()) {
+                                        self.emit('state', gw.isPoweredOn());
                                         clearInterval(statePoll);
                                         emitGateway();
                                     }
@@ -125,11 +126,11 @@ function GATTIP() {
         }
 
         function emitGateway() {
-            processor.on('indication', function (message) {
+            processor.on('indication', function(message) {
                 self.traceMessage(message, '<ind:');
                 guardedProcessMessage(false, message, mh.handleIndication)
             });
-            processor.on('request', function (message) {
+            processor.on('request', function(message) {
                 sendError(new InternalError("Received a request on a client stream:" + JSON.stringify(message)));
             });
             gateway = gw;
@@ -138,7 +139,7 @@ function GATTIP() {
 
         function doOpen(config) {
             if (config.token) {
-                gw._authenticate(function () {
+                gw._authenticate(function() {
                         waitReady(config);
                     }, config.token,
                     config.version);
@@ -158,13 +159,13 @@ function GATTIP() {
                 WebSocket = require('websocket').w3cwebsocket;
             }
             stream = new WebSocket(config.url, undefined, undefined, undefined, undefined, NODE_CLIENT_SOCKET_CONFIG);
-            stream.onopen = function () {
+            stream.onopen = function() {
                 doOpen(config);
             };
-            stream.onclose = function (error) {
+            stream.onclose = function(error) {
                 self.emit('onclose', error);
             };
-            stream.onerror = function (error) {
+            stream.onerror = function(error) {
                 self.emit('onerror', error);
             };
 
@@ -175,11 +176,11 @@ function GATTIP() {
             throw new ApplicationError("URL or stream implementing a socket interface is required");
         }
 
-        stream.onmessage = function (streamMessage) {
+        stream.onmessage = function(streamMessage) {
             guardedProcessMessage(true, streamMessage.data, processor.onMessageReceived);
         };
 
-        processor.on('response', function (message, ctxt) {
+        processor.on('response', function(message, ctxt) {
             self.traceMessage(message, '<rsp:');
             try {
                 if (message.error) {
@@ -197,12 +198,12 @@ function GATTIP() {
             }
         });
 
-        processor.on('error', function (error) {
+        processor.on('error', function(error) {
             self.emit('error', error);
         });
     };
 
-    this.close = function () {
+    this.close = function() {
         if (stream) {
             stream.close();
         }
@@ -211,7 +212,7 @@ function GATTIP() {
 
     // INTERNAL ONLY
 
-    this.request = function (method, params, userCb, handler) {
+    this.request = function(method, params, userCb, handler) {
         var ctxt = mh.createUserContext(method, params, userCb, handler);
         var msg = ctxt.originalMessage;
         processor.register(msg, ctxt);
@@ -219,13 +220,13 @@ function GATTIP() {
         stream.send(JSON.stringify(msg));
     };
 
-    this.respond = function (cookie, params) {
+    this.respond = function(cookie, params) {
         var msg = mh.wrapResponse(cookie, params);
         self.traceMessage(msg, '>rsp:');
         stream.send(JSON.stringify(msg));
     };
 
-    this.sendIndications = function (result, params) {
+    this.sendIndications = function(result, params) {
         var mesg = {
             params: params,
             jsonrpc: "2.0"
@@ -236,7 +237,7 @@ function GATTIP() {
         stream.send(JSON.stringify(mesg));
     };
 
-    this.sendError = function (mesg) {
+    this.sendError = function(mesg) {
         mesg.jsonrpc = "2.0";
         self.traceMessage(mesg, '>rsp:');
         stream.send(JSON.stringify(mesg));

@@ -13,26 +13,28 @@ function Gateway(gattip, scanFilters) {
 
     this.isScanning = false;
 
-    this.isPoweredOn = function () {
+    this.isPoweredOn = function() {
         return self.state == C.kPoweredOn;
     };
 
     // REQUESTS =================================================
-    this._authenticate = function (callback, token, version) {
+    this._authenticate = function(callback, token, version) {
         var params = {};
         params[C.kDeviceAccessToken] = token;
         params[C.kGetVersionInfo] = version;
-        gattip.request(C.kOpen, params, callback, function (params) {
+        gattip.request(C.kOpen, params, callback, function(params) {
             if (params.isAuthenticated === true) {
+                gattip.fulfill(callback, self);
+            } else if (params[C.kOpen] === true) {
                 gattip.fulfill(callback, self);
             } else {
                 console.warn('HACK ALERT: Proxy is supposed to respond with normal error');
-                throw new GatewayError({error: 'Auth error'});
+                throw new GatewayError({ error: 'Auth error' });
             }
         });
     };
 
-    this.scan = function (callback, scanOptions) {
+    this.scan = function(callback, scanOptions) {
         var params = {};
         if (scanOptions) {
             if ('boolean' == typeof scanOptions.scanDuplicates) {
@@ -43,30 +45,30 @@ function Gateway(gattip, scanFilters) {
             }
         }
 
-        gattip.request(C.kScanForPeripherals, params, callback, function (params) {
+        gattip.request(C.kScanForPeripherals, params, callback, function(params) {
             self.isScanning = true;
             gattip.fulfill(callback, self);
         });
     };
 
     // TODO: Unregister all on scan event handlers
-    this.stopScan = function (callback) {
-        gattip.request(C.kStopScanning, {}, callback, function (params) {
+    this.stopScan = function(callback) {
+        gattip.request(C.kStopScanning, {}, callback, function(params) {
             self.isScanning = false;
             gattip.fulfill(callback, self);
         });
     };
 
-    this.centralState = function (callback) {
+    this.centralState = function(callback) {
         var params = {};
 
-        gattip.request(C.kCentralState, {}, callback, function (params) {
+        gattip.request(C.kCentralState, {}, callback, function(params) {
             self.state = params[C.kState];
             gattip.fulfill(callback, self);
         });
     };
 
-    this.configure = function (callback, pwrAlert, centralID) {
+    this.configure = function(callback, pwrAlert, centralID) {
         var params = {};
         if (typeof pwrAlert != 'undefined') {
             params[C.kShowPowerAlert] = pwrAlert;
@@ -75,20 +77,20 @@ function Gateway(gattip, scanFilters) {
             params[C.kIdentifierKey] = centralID;
         }
 
-        gattip.request(C.kConfigure, {}, callback, function (params) {
+        gattip.request(C.kConfigure, {}, callback, function(params) {
             gattip.fulfill(callback, self);
         });
     };
 
     //
 
-    this.handleScanIndication = function (params) {
+    this.handleScanIndication = function(params) {
         var peripheralUUID = params[C.kPeripheralUUID];
         if (!peripheralUUID) {
             throw new InternalError('Peripheral UUID is not availabvle');
         }
         if (scanFilters && scanFilters.uuids) {
-            for (var i in scanFilters.uuids) {
+            for (var i = 0; i < scanFilters.uuids.length; i++) {
                 var uuid = scanFilters.uuids[i];
                 if (uuid && uuid.length) {
                     if (uuid != peripheralUUID) {
@@ -106,17 +108,18 @@ function Gateway(gattip, scanFilters) {
                 params[C.kPeripheralName],
                 params[C.kRSSIkey],
                 params[C.kCBAdvertisementDataTxPowerLevel],
+                params[C.kCBAdvertisementDataIsConnectable],
                 params[C.kCBAdvertisementDataServiceUUIDsKey],
                 params[C.kCBAdvertisementDataManufacturerDataKey],
                 params[C.kCBAdvertisementDataServiceDataKey],
                 params[C.kAdvertisementDataKey],
-                params[C.kScanRecord])
-            );
+                params[C.kScanRecord]));
         } else {
             peripheral._updateFromScanData(
                 params[C.kPeripheralName],
                 params[C.kRSSIkey],
                 params[C.kCBAdvertisementDataTxPowerLevel],
+                params[C.kCBAdvertisementDataIsConnectable],
                 params[C.kCBAdvertisementDataServiceUUIDsKey],
                 params[C.kCBAdvertisementDataManufacturerDataKey],
                 params[C.kCBAdvertisementDataServiceDataKey],
@@ -130,16 +133,16 @@ function Gateway(gattip, scanFilters) {
 
     // PERIPHERAL MANAGEMENT ETC. ======================================
 
-    this.addPeripheralWithValues = function (uuid, name, RSSI, txPwr, serviceUUIDs, mfrData, scvData) {
+    this.addPeripheralWithValues = function(uuid, name, RSSI, txPwr, serviceUUIDs, mfrData, scvData, connectable) {
         if (!uuid) {
             throw new InternalError('Attempting to add an empty peripheral');
         }
-        var peripheral = self.addPeripheral(new Peripheral(gattip, uuid, name, RSSI, txPwr, serviceUUIDs, mfrData, scvData));
+        var peripheral = self.addPeripheral(new Peripheral(gattip, uuid, name, RSSI, txPwr, connectable, serviceUUIDs, mfrData, scvData));
         peripherals[uuid] = peripheral;
         return peripheral;
     };
 
-    this.addPeripheral = function (peripheral) {
+    this.addPeripheral = function(peripheral) {
         if (!peripheral || !peripheral.uuid) {
             throw new InternalError('Attempting to add an empty peripheral');
         }
@@ -147,18 +150,18 @@ function Gateway(gattip, scanFilters) {
         return peripheral;
     };
 
-    this.removePeripheral = function (peripheral) {
+    this.removePeripheral = function(peripheral) {
         if (!peripheral || !peripheral.uuid) {
             throw new InternalError('Attempting to remove an empty peripheral');
         }
         delete peripherals[peripheral.uuid];
     };
 
-    this.getPeripheral = function (peripheralUUID) {
+    this.getPeripheral = function(peripheralUUID) {
         return peripherals[peripheralUUID];
     };
 
-    this.getPeripheralOrDie = function (peripheralUUID) {
+    this.getPeripheralOrDie = function(peripheralUUID) {
         var peripheral = peripherals[peripheralUUID];
         if (!peripheral) {
             throw new InternalError('Unable to find peripheral with UUID ' + peripheralUUID);
@@ -166,7 +169,7 @@ function Gateway(gattip, scanFilters) {
         return peripheral;
     };
 
-    this.getObjects = function (type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
+    this.getObjects = function(type, peripheralUUID, serviceUUID, characteristicUUID, descriptorUUID) {
         var resultObj = {};
         resultObj.peripheral = peripherals[peripheralUUID];
         if (resultObj.peripheral) {
@@ -205,7 +208,7 @@ function Gateway(gattip, scanFilters) {
     };
 
 
-    this.getObjectsFromMessage = function (type, params) {
+    this.getObjectsFromMessage = function(type, params) {
         if (!params) {
             throw new InternalError("Message parameters are missing");
         }

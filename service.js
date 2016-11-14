@@ -13,27 +13,26 @@ function Service(peripheral, uuid) {
     this.isPrimary = true; //TODO: read from remote
     // TODO: this.includedServices = {};
 
-    this.peripheral = function () {
+    this.peripheral = function() {
         return peripheral;
     };
-    this.gattip = function () {
+    this.gattip = function() {
         return gattip;
     };
-    this.getAllCharacteristics = function () {
+    this.getAllCharacteristics = function() {
         return characteristics;
     };
-    this.findCharacteristic = function (uuid) {
+    this.findCharacteristic = function(uuid) {
         return characteristics[uuid];
     };
-    this.addCharacteristicWithUUID = function (characteristicUUID, properties) {
+    this.addCharacteristicWithUUID = function(characteristicUUID, properties) {
         var characteristic = new Characteristic(self, characteristicUUID, properties);
         return characteristics[characteristicUUID] = characteristic;
     };
 
-    this.addCharacteristic = function (characteristic) {
+    this.addCharacteristic = function(characteristic) {
         characteristics[characteristic.uuid] = characteristic;
     };
 }
 
 exports.Service = Service;
-
