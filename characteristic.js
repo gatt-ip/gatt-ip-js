@@ -23,66 +23,66 @@ function Characteristic(service, uuid, props) {
     //this.value = undefined;
     this.isNotifying = false;
 
-    this.gattip = function() {
+    this.gattip = function () {
         return gattip;
     };
-    this.peripheral = function() {
+    this.peripheral = function () {
         return peripheral;
     };
-    this.service = function() {
+    this.service = function () {
         return service;
     };
-    this.getAllDescriptors = function() {
+    this.getAllDescriptors = function () {
         return descriptors;
     };
-    this.findDescriptor = function(uuid) {
+    this.findDescriptor = function (uuid) {
         return descriptors[uuid];
     };
-    this.addDescriptorWithUUID = function(descriptorUUID) {
+    this.addDescriptorWithUUID = function (descriptorUUID) {
         var descriptor = new Descriptor(self, descriptorUUID);
         return descriptors[descriptorUUID] = descriptor;
     };
-    this.addDescriptor = function(descriptor) {
+    this.addDescriptor = function (descriptor) {
         return descriptors[descriptor.uuid] = descriptor;
     };
     // TODO: Explain properties
-    this.hasProperty = function(type) {
+    this.hasProperty = function (type) {
         return (properties[type] && properties[type].enabled);
     };
-    this.setProperty = function(type, value) {
+    this.setProperty = function (type, value) {
         return (properties[type] = value);
     };
-    this.allProperties = function() {
+    this.allProperties = function () {
         return properties;
     };
 
 
     // REQUESTS =================================================
 
-    this.readValue = function(callback) {
+    this.readValue = function (callback) {
         var params = helper.populateParams(self);
-        gattip.request(C.kGetCharacteristicValue, params, callback, function(params) {
+        gattip.request(C.kGetCharacteristicValue, params, callback, function (params) {
             helper.requireFields('Value', params, [C.kValue], []);
             self.value = params[C.kValue];
             gattip.fulfill(callback, self, self.value);
         });
     };
 
-    this.writeValue = function(callback, value) {
+    this.writeValue = function (callback, value) {
         helper.requireHexValue('writeValue', 'value', value);
         var params = helper.populateParams(self);
         params[C.kValue] = value;
-        gattip.request(C.kWriteCharacteristicValue, params, callback, function(params) {
+        gattip.request(C.kWriteCharacteristicValue, params, callback, function (params) {
             self.value = value;
             gattip.fulfill(callback, self);
         });
     };
 
-    this.enableNotifications = function(callback, isNotifying) {
+    this.enableNotifications = function (callback, isNotifying) {
         helper.requireBooleanValue('enableNotifications', 'isNotifying', isNotifying);
         var params = helper.populateParams(self);
         params[C.kIsNotifying] = isNotifying;
-        gattip.request(C.kSetValueNotification, params, callback, function(params) {
+        gattip.request(C.kSetValueNotification, params, callback, function (params) {
             self.isNotifying = isNotifying;
             gattip.fulfill(callback, self, isNotifying);
         });
@@ -91,7 +91,7 @@ function Characteristic(service, uuid, props) {
 
     // INDICATIONS ==============================================
 
-    this.handleValueNotification = function(params) {
+    this.handleValueNotification = function (params) {
         self.value = params[C.kValue];
         self.emit('valueChange', self, self.value);
     };
@@ -99,7 +99,7 @@ function Characteristic(service, uuid, props) {
 
     // SERVER RESPONSES/INDICATIONS  ============================
 
-    this.respondToReadRequest = function(cookie, value) {
+    this.respondToReadRequest = function (cookie, value) {
         helper.requireHexValue('respondToReadRequest', 'value', value);
         var params = helper.populateParams(self);
         params[C.kValue] = value;
@@ -107,13 +107,13 @@ function Characteristic(service, uuid, props) {
         gattip.respond(cookie, params);
     };
 
-    this.respondToWriteRequest = function(cookie) {
+    this.respondToWriteRequest = function (cookie) {
         var params = helper.populateParams(self);
         cookie.result = C.kWriteCharacteristicValue;
         gattip.respond(cookie, params);
     };
 
-    this.respondToChangeNotification = function(cookie, isNotifying) {
+    this.respondToChangeNotification = function (cookie, isNotifying) {
         var params = helper.populateParams(self);
         helper.requireBooleanValue('respondToChangeNotification', 'value', isNotifying);
         params[C.kIsNotifying] = isNotifying;
@@ -122,7 +122,7 @@ function Characteristic(service, uuid, props) {
         gattip.respond(cookie, params);
     };
 
-    this.indicateValueChange = function(value) {
+    this.indicateValueChange = function (value) {
         helper.requireHexValue('writeValue', 'value', value);
         var params = helper.populateParams(self);
         params[C.kValue] = value;

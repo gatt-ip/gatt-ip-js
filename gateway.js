@@ -1,40 +1,39 @@
 var C = require('./lib/constants').C;
 var helper = require('./lib/message-helper');
 var Peripheral = require('./peripheral').Peripheral;
+var Stream = require('./stream').Stream;
 var InternalError = require('./errors').InternalError;
 var ApplicationError = require('./errors').ApplicationError;
 var ee = require("./lib/event-emitter");
+var GatewayError = require("./errors").GatewayError;
 
 function Gateway(gattip, scanFilters) {
     ee.instantiateEmitter(this);
     var self = this;
     var peripherals = {};
-    var state;
+    var objectsByObjectId = {};
 
     this.isScanning = false;
 
-    this.isPoweredOn = function() {
+    this.isPoweredOn = function () {
         return self.state == C.kPoweredOn;
     };
 
     // REQUESTS =================================================
-    this._authenticate = function(callback, token, version) {
+    this._authenticate = function (callback, token, version) {
         var params = {};
         params[C.kDeviceAccessToken] = token;
         params[C.kGetVersionInfo] = version;
-        gattip.request(C.kOpen, params, callback, function(params) {
-            if (params.isAuthenticated === true) {
-                gattip.fulfill(callback, self);
-            } else if (params[C.kOpen] === true) {
-                gattip.fulfill(callback, self);
+        gattip.request(C.kOpen, params, callback, function (params) {
+            if (params && params.isAuthenticated === false) {
+                gattip.reject(callback, new GatewayError("Authentication failed"))
             } else {
-                console.warn('HACK ALERT: Proxy is supposed to respond with normal error');
-                throw new GatewayError({ error: 'Auth error' });
+                gattip.fulfill(callback, self);
             }
         });
     };
 
-    this.scan = function(callback, scanOptions) {
+    this.scan = function (callback, scanOptions) {
         var params = {};
         if (scanOptions) {
             if ('boolean' == typeof scanOptions.scanDuplicates) {
@@ -45,30 +44,30 @@ function Gateway(gattip, scanFilters) {
             }
         }
 
-        gattip.request(C.kScanForPeripherals, params, callback, function(params) {
+        gattip.request(C.kScanForPeripherals, params, callback, function (params) {
             self.isScanning = true;
             gattip.fulfill(callback, self);
         });
     };
 
     // TODO: Unregister all on scan event handlers
-    this.stopScan = function(callback) {
-        gattip.request(C.kStopScanning, {}, callback, function(params) {
+    this.stopScan = function (callback) {
+        gattip.request(C.kStopScanning, {}, callback, function (params) {
             self.isScanning = false;
             gattip.fulfill(callback, self);
         });
     };
 
-    this.centralState = function(callback) {
+    this.centralState = function (callback) {
         var params = {};
 
-        gattip.request(C.kCentralState, {}, callback, function(params) {
+        gattip.request(C.kCentralState, {}, callback, function (params) {
             self.state = params[C.kState];
             gattip.fulfill(callback, self);
         });
     };
 
-    this.configure = function(callback, pwrAlert, centralID) {
+    this.configure = function (callback, pwrAlert, centralID) {
         var params = {};
         if (typeof pwrAlert != 'undefined') {
             params[C.kShowPowerAlert] = pwrAlert;
@@ -77,11 +76,47 @@ function Gateway(gattip, scanFilters) {
             params[C.kIdentifierKey] = centralID;
         }
 
-        gattip.request(C.kConfigure, {}, callback, function(params) {
+        gattip.request(C.kConfigure, {}, callback, function (params) {
             gattip.fulfill(callback, self);
         });
     };
 
+    this.openStream = function (callback, streamPath, options) {
+        var params = {};
+        if (!options) {
+            options = {};
+        }
+        if (typeof options.speed == 'number') {
+            params[C.kSpeed] = options.speed;
+        }
+        if (typeof options.force == 'boolean') {
+            params[C.kForce] = options.force;
+        }
+        var streamObjectId = params[C.kObjectId] = streamPath;
+        helper.requireFields('objectId', params, [C.kObjectId]);
+
+        gattip.request(C.kOpenStream, params, callback, function (params) {
+            if (typeof params[C.kObjectId] == "string") {
+                // if the response contains a new object ID, replace it
+                streamObjectId = params[C.kObjectId];
+            }
+            var stream = new Stream(this, streamObjectId);
+            objectsByObjectId[streamObjectId] = stream;
+            gattip.fulfill(callback, stream);
+        });
+    };
+    //
+    this.closeStream = function (callback, objectId) {
+        var params = {};
+        var streamObjectId = params[C.kObjectId] = objectId;
+        helper.requireFields('objectId', params, [C.kObjectId]);
+
+        gattip.request(C.kCloseStream, params, callback, function (params) {
+            var stream = objectsByObjectId[streamObjectId];
+            delete objectsByObjectId[streamObjectId];
+            gattip.fulfill(callback, stream);
+        });
+    };
     //
 
     this.handleScanIndication = function(params) {
@@ -113,7 +148,8 @@ function Gateway(gattip, scanFilters) {
                 params[C.kCBAdvertisementDataManufacturerDataKey],
                 params[C.kCBAdvertisementDataServiceDataKey],
                 params[C.kAdvertisementDataKey],
-                params[C.kScanRecord]));
+                params[C.kScanRecord])
+            );
         } else {
             peripheral._updateFromScanData(
                 params[C.kPeripheralName],
@@ -133,7 +169,7 @@ function Gateway(gattip, scanFilters) {
 
     // PERIPHERAL MANAGEMENT ETC. ======================================
 
-    this.addPeripheralWithValues = function(uuid, name, RSSI, txPwr, serviceUUIDs, mfrData, scvData, connectable) {
+    this.addPeripheralWithValues = function (uuid, name, RSSI, txPwr, serviceUUIDs, mfrData, scvData, connectable) {
         if (!uuid) {
             throw new InternalError('Attempting to add an empty peripheral');
         }
@@ -142,26 +178,38 @@ function Gateway(gattip, scanFilters) {
         return peripheral;
     };
 
-    this.addPeripheral = function(peripheral) {
+    this.addPeripheral = function (peripheral) {
         if (!peripheral || !peripheral.uuid) {
             throw new InternalError('Attempting to add an empty peripheral');
         }
         peripherals[peripheral.uuid] = peripheral;
         return peripheral;
     };
+    this.addStream = function (objectId) {
+        var stream  =new Stream(this, objectId);
+        objectsByObjectId[objectId] = stream;
+        return stream;
+    };
 
-    this.removePeripheral = function(peripheral) {
+    this.removePeripheral = function (peripheral) {
         if (!peripheral || !peripheral.uuid) {
             throw new InternalError('Attempting to remove an empty peripheral');
         }
         delete peripherals[peripheral.uuid];
     };
 
-    this.getPeripheral = function(peripheralUUID) {
+    this.getPeripheral = function (peripheralUUID) {
         return peripherals[peripheralUUID];
     };
 
-    this.getPeripheralOrDie = function(peripheralUUID) {
+    this.getObject = function (objectId) {
+        return objectsByObjectId[objectId];
+    };
+    this.removeObject = function (objectId) {
+        delete objectsByObjectId[objectId];
+    };
+
+    this.getPeripheralOrDie = function (peripheralUUID) {
         var peripheral = peripherals[peripheralUUID];
         if (!peripheral) {
             throw new InternalError('Unable to find peripheral with UUID ' + peripheralUUID);
@@ -194,16 +242,16 @@ function Gateway(gattip, scanFilters) {
                             throw new InternalError('_getObjects: Argument "type" is required');
                         }
                     } else {
-                        throw new ApplicationError('Descriptor "' + descriptorUUID + '" not found in the service table');
+                        throw new ApplicationError('Descriptor "'+ descriptorUUID + '" not found in the service table');
                     }
                 } else {
-                    throw new ApplicationError('Characteristic "' + characteristicUUID + '" not found in the service table');
+                    throw new ApplicationError('Characteristic "'+ characteristicUUID + '" not found in the service table');
                 }
             } else {
-                throw new ApplicationError('Service "' + serviceUUID + '" not found in the service table');
+                throw new ApplicationError('Service "'+ serviceUUID + '" not found in the service table');
             }
         } else {
-            throw new ApplicationError('Peripheral with id ' + peripheralUUID + ' not found');
+            throw new ApplicationError('Peripheral with id '+ peripheralUUID + ' not found');
         }
     };
 
@@ -213,7 +261,7 @@ function Gateway(gattip, scanFilters) {
             throw new InternalError("Message parameters are missing");
         }
         try {
-            return self.getObjects(type, params[C.kPeripheralUUID], params[C.kServiceUUID], params[C.kCharacteristicUUID], params[C.kDescriptorUUID]);
+            return self.getObjects(type, params[C.kPeripheralUUID], params[C.kServiceUUID], params[C.kCharacteristicUUID], params[C.kDescriptorUUID] );
         } catch (error) {
             throw new InternalError(error.message, error.detail);
         }

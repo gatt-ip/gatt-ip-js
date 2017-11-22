@@ -26,7 +26,7 @@ function Peripheral(gattip, uuid, name, rssi, txPwr, connectable, serviceUuids, 
     var serviceData = {};
     var serviceUUIDs = [];
     // constructor continues below
-    this._updateFromScanData = function(name, rssi, txPwr, connectable, serviceUuids, mfrData, svcData, addata, scanData) {
+    this._updateFromScanData = function (name, rssi, txPwr, connectable, serviceUuids, mfrData, svcData, addata, scanData) {
         this.name = name;
         this.rssi = rssi;
         this.txPowerLevel = txPwr;
@@ -56,14 +56,14 @@ function Peripheral(gattip, uuid, name, rssi, txPwr, connectable, serviceUuids, 
         }
         if (addata) {
             advDataParser.parseAdvArray(self, addata.c2);
-            if (self.advdata.connectable) {
+            if(self.advdata.connectable){
                 self.connectable = self.advdata.connectable === 'true';
             }
-            if (self.advdata.txPowerLevel) {
+            if(self.advdata.txPowerLevel){
                 this.txPowerLevel = self.advdata.txPowerLevel;
             }
-            if (self.advdata.manufacturerData && !helper.isEmpty(self.advdata.manufacturerData)) {
-                for (var mfrKey in self.advdata.manufacturerData) {
+            if(self.advdata.manufacturerData && !helper.isEmpty(self.advdata.manufacturerData)){
+                for(var mfrKey in self.advdata.manufacturerData){
                     //noinspection JSUnfilteredForInLoop
                     var mKey = mfrKey.toUpperCase();
                     //noinspection JSUnfilteredForInLoop
@@ -71,56 +71,56 @@ function Peripheral(gattip, uuid, name, rssi, txPwr, connectable, serviceUuids, 
                 }
             }
             // Thinking that always will get only one service UUID from the adv data.
-            if (self.advdata.serviceUUIDs && self.advdata.serviceUUIDs.length > 0) {
+            if(self.advdata.serviceUUIDs && self.advdata.serviceUUIDs.length > 0){
                 pushUnique(serviceUUIDs, self.advdata.serviceUUIDs);
             }
         }
 
     };
-    this.findService = function(uuid) {
+    this.findService = function (uuid) {
         return services[uuid];
     };
-    this.getMfrData = function(mfrId) {
+    this.getMfrData = function (mfrId) {
         // id as hex string
         return manufacturerData[mfrId];
     };
-    this.getSvcData = function(svcId) {
+    this.getSvcData = function (svcId) {
         // id as hex string
         return serviceData[svcId];
     };
-    this.hasAdvertisedServiceUUID = function(serviceUUID) {
+    this.hasAdvertisedServiceUUID = function (serviceUUID) {
         return (serviceUUIDs.indexOf(serviceUUID) >= 0);
     };
-    this.getAllServices = function() {
+    this.getAllServices = function () {
         return services;
     };
-    this.getAllMfrData = function() {
+    this.getAllMfrData = function () {
         return manufacturerData;
     };
-    this.getAllSvcData = function() {
+    this.getAllSvcData = function () {
         return serviceData;
     };
-    this.getAllAdvertisedServiceUUIDs = function() {
+    this.getAllAdvertisedServiceUUIDs = function () {
         return serviceUUIDs;
     };
-    this.addServiceWithUUID = function(serviceUUID) {
+    this.addServiceWithUUID = function (serviceUUID) {
         var service = new Service(self, serviceUUID);
         return services[serviceUUID] = service;
     };
-    this.addService = function(service) {
+    this.addService = function (service) {
         return services[service.uuid] = service;
     };
-    this.gattip = function() {
+    this.gattip = function () {
         return gattip;
     };
 
 
     // SERVER RESPONSES/INDICATIONS  ============================
 
-    this.connectOnce = function(callback) {
+    this.connectOnce = function (callback) {
         // TODO: Error if already connected
         var params = helper.populateParams(self);
-        gattip.request(C.kConnect, params, callback, function(params) {
+        gattip.request(C.kConnect, params, callback, function (params) {
             serviceTable.parseServiceRecord(self, params);
             self.isConnected = true;
             gattip.fulfill(callback, self);
@@ -134,24 +134,23 @@ function Peripheral(gattip, uuid, name, rssi, txPwr, connectable, serviceUuids, 
      * @param config Optional object with numConnectAttempts. This value defaults to 3,
      * but may change to 1 in the future
      */
-    this.connect = function(callback, config) {
+    this.connect = function (callback, config) {
         // TODO: Error if already connected
 
         var fullfillCb = (typeof callback == 'object' ? callback.fulfill : callback);
 
-        var tries = 0;
+        var tries = C.NUM_CONNECT_ATTEMPTS;
 
         if (config && typeof config.numConnectAttempts == 'number') {
             tries = config.numConnectAttempts;
         }
-
         function tryConnect(error) {
-            if (tries != 0) {
-                console.log("Failed to connect. Error was", error, "Attempting", C.NUM_CONNECT_ATTEMPTS - tries, "more times");
+            if (error) {
+                console.log("Failed to connect. Error was", error, "Attempting", tries, "more times");
             }
-            tries++;
-            if (tries <= C.NUM_CONNECT_ATTEMPTS) {
-                self.connectOnce({ fulfill: fullfillCb, reject: tryConnect });
+            tries--;
+            if (tries >= 0) {
+                self.connectOnce({fulfill: fullfillCb, reject: tryConnect});
             } else {
                 gattip.reject(callback, error)
             }
@@ -160,16 +159,16 @@ function Peripheral(gattip, uuid, name, rssi, txPwr, connectable, serviceUuids, 
         tryConnect();
     };
 
-    this.disconnect = function(callback) {
+    this.disconnect = function (callback) {
         // TODO: Error if not connected
         var params = helper.populateParams(self);
-        gattip.request(C.kDisconnect, params, callback, function(params) {
+        gattip.request(C.kDisconnect, params, callback, function (params) {
             self.isConnected = false;
             gattip.fulfill(callback, self);
         });
     };
 
-    this.respondToConnectRequest = function(cookie) {
+    this.respondToConnectRequest = function (cookie) {
         var peripheral_db = {};
         peripheral_db[C.kPeripheralUUID] = this.uuid;
         peripheral_db[C.kPeripheralName] = this.name;
@@ -182,7 +181,7 @@ function Peripheral(gattip, uuid, name, rssi, txPwr, connectable, serviceUuids, 
         gattip.respond(cookie, peripheral_db);
     };
 
-    this.handleDisconnectIndication = function() {
+    this.handleDisconnectIndication = function () {
         self.isConnected = false;
         self.emit('disconnected', self);
     };
