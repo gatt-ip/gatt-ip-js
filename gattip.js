@@ -212,6 +212,7 @@ function GATTIP() {
         }
         if (processor) {
             processor.flushRequests();
+            processor.removeAllListeners();
         }
         if (gateway) {
             gateway.close();
