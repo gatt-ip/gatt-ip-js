@@ -164,6 +164,7 @@ function Peripheral(gattip, uuid, name, rssi, txPwr, connectable, serviceUuids, 
         var params = helper.populateParams(self);
         gattip.request(C.kDisconnect, params, callback, function (params) {
             self.isConnected = false;
+            self.removeAllChildListenersAndFlush();
             gattip.fulfill(callback, self);
         });
     };
@@ -184,6 +185,29 @@ function Peripheral(gattip, uuid, name, rssi, txPwr, connectable, serviceUuids, 
     this.handleDisconnectIndication = function () {
         self.isConnected = false;
         self.emit('disconnected', self);
+        self.removeAllChildListenersAndFlush();
+    };
+
+    this.removeAllChildListenersAndFlush = function () {
+        gattip.flushRequests(function (context) {
+            if (uuid && context && context.originalMessage && context.originalMessage.params) {
+                return context.originalMessage.params[C.kPeripheralUUID] === uuid;
+
+            }
+        });
+        for (var sIdx = 0; sIdx < Object.keys(services).length; sIdx++) {
+            if (services.hasOwnProperty(sIdx)) {
+                var s = services[sIdx];
+                var characteristics = p.getAllCharacteristics();
+                for (var cIdx = 0; cIdx < Object.keys(characteristics).length; cIdx++) {
+                    if (services.hasOwnProperty(cIdx)) {
+                        var c = services[cIdx];
+                        c.removeAllListeners();
+                    }
+                }
+            }
+        }
+        services = {};
     };
 
     this._updateFromScanData(name, rssi, txPwr, connectable, serviceUuids, mfrData, svcData);

@@ -93,7 +93,7 @@ function GATTIP() {
             if (config.isServer) {
                 processor.on('request', function (message) {
                     self.traceMessage(message, '<req:');
-                    guardedProcessMessage(false, message, smh.processMessage)
+                    guardedProcessMessage(false, message, smh.processMessage);
                 });
                 processor.on('indication', function (message) {
                     sendError(new ApplicationError("Received an indication on a server stream:" + JSON.stringify(message)));
@@ -163,6 +163,8 @@ function GATTIP() {
                 doOpen(config);
             };
             stream.onclose = function (error) {
+                stream = undefined;
+                self.close();
                 self.emit('onclose', error);
             };
             stream.onerror = function (error) {
@@ -204,9 +206,20 @@ function GATTIP() {
     };
 
     this.close = function () {
+        self.removeAllListeners();
         if (stream) {
             stream.close();
         }
+        if (processor) {
+            processor.flushRequests();
+        }
+        if (gateway) {
+            gateway.close();
+        }
+    };
+
+    this.flushRequests = function (filter) {
+        processor.flushRequests(filter);
     };
 
     // AKA socket (as opposed to gattip stream)

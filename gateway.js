@@ -267,6 +267,19 @@ function Gateway(gattip, scanFilters) {
         }
     };
 
+    this.close = function () {
+        for (var pIdx in Object.keys(peripherals)) {
+            if (peripherals.hasOwnProperty(pIdx)) {
+                var p = peripherals[pIdx];
+                p.removeAllListeners();
+                p.removeAllChildListenersAndFlush();
+
+            }
+        }
+        peripherals = {};
+        self.removeAllListeners();
+    };
+
 }
 ee.makeEmitter(Gateway);
 module.exports.Gateway = Gateway;
