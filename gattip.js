@@ -256,13 +256,13 @@ function GATTIP() {
     };
 
     this.sendIndications = function (result, params){
-        var mesg = {
+        var msg = {
             params: params,
             jsonrpc: "2.0"
         };
-        mesg.result = result;
-        mesg.params = params;
-        self.traceMessage(mesg, '>rsp:');
+        msg.result = result;
+        msg.params = params;
+        self.traceMessage(msg, '>rsp:');
         if (stream) {
             stream.send(JSON.stringify(msg));
         } else {
@@ -270,9 +270,9 @@ function GATTIP() {
         }
     };
 
-    this.sendError = function (mesg) {
-        mesg.jsonrpc = "2.0";
-        self.traceMessage(mesg, '>rsp:');
+    this.sendError = function (msg) {
+        msg.jsonrpc = "2.0";
+        self.traceMessage(msg, '>rsp:');
         if (stream) {
             stream.send(JSON.stringify(msg));
         } else {
