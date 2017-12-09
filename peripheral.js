@@ -192,16 +192,17 @@ function Peripheral(gattip, uuid, name, rssi, txPwr, connectable, serviceUuids, 
         gattip.flushRequests(function (context) {
             if (uuid && context && context.originalMessage && context.originalMessage.params) {
                 return context.originalMessage.params[C.kPeripheralUUID] === uuid;
-
+            } else {
+                return false;
             }
         });
-        for (var sIdx = 0; sIdx < Object.keys(services).length; sIdx++) {
-            if (services.hasOwnProperty(sIdx)) {
-                var s = services[sIdx];
-                var characteristics = p.getAllCharacteristics();
-                for (var cIdx = 0; cIdx < Object.keys(characteristics).length; cIdx++) {
-                    if (services.hasOwnProperty(cIdx)) {
-                        var c = services[cIdx];
+        for (var sid in services) {
+            if (services.hasOwnProperty(sid)) {
+                var s = services[sid];
+                var characteristics = s.getAllCharacteristics();
+                for (var cid in characteristics) {
+                    if (characteristics.hasOwnProperty(cid)) {
+                        var c = characteristics[cid];
                         c.removeAllListeners();
                     }
                 }
