@@ -182,7 +182,7 @@ function GATTIP() {
             guardedProcessMessage(true, streamMessage.data, processor.onMessageReceived);
         };
 
-        processor.on('response', function (message, ctxt) {
+        function onProcessedResponse(message, ctxt) {
             self.traceMessage(message, '<rsp:');
             try {
                 if (message.error) {
@@ -198,7 +198,9 @@ function GATTIP() {
             } catch (error) {
                 self.reject(ctxt.cb, error);
             }
-        });
+        }
+
+        processor.on('response', onProcessedResponse);
 
         processor.on('error', function (error) {
             self.emit('error', error);
@@ -236,13 +238,21 @@ function GATTIP() {
         var msg = ctxt.originalMessage;
         processor.register(msg, ctxt);
         self.traceMessage(msg, '>req:');
-        stream.send(JSON.stringify(msg));
+        if (stream) {
+            stream.send(JSON.stringify(msg));
+        } else {
+            self.reject(userCb, new GatewayError("Stream closed"));
+        }
     };
 
     this.respond = function (cookie, params) {
         var msg = mh.wrapResponse(cookie, params);
         self.traceMessage(msg, '>rsp:');
-        stream.send(JSON.stringify(msg));
+        if (stream) {
+            stream.send(JSON.stringify(msg));
+        } else {
+            throw new GatewayError("Stream closed");
+        }
     };
 
     this.sendIndications = function (result, params){
@@ -253,13 +263,21 @@ function GATTIP() {
         mesg.result = result;
         mesg.params = params;
         self.traceMessage(mesg, '>rsp:');
-        stream.send(JSON.stringify(mesg));
+        if (stream) {
+            stream.send(JSON.stringify(msg));
+        } else {
+            throw new GatewayError("Stream closed");
+        }
     };
 
-    this.sendError = function (mesg){
+    this.sendError = function (mesg) {
         mesg.jsonrpc = "2.0";
         self.traceMessage(mesg, '>rsp:');
-        stream.send(JSON.stringify(mesg));
+        if (stream) {
+            stream.send(JSON.stringify(msg));
+        } else {
+            throw new GatewayError("Stream closed");
+        }
     };
 }
 
