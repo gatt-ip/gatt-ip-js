@@ -164,8 +164,9 @@ function GATTIP() {
             };
             stream.onclose = function (error) {
                 stream = undefined;
-                self.close();
                 self.emit('onclose', error);
+                setTimeout(self.close, 100);
+
             };
             stream.onerror = function (error) {
                 self.emit('onerror', error);
