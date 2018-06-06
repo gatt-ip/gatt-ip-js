@@ -26,10 +26,22 @@ function GATTIP() {
     var mh;
     var smh;
     var gateway;
+    var pingTimer = null;
+    function schedulePing() {
+        clearTimeout(pingTimer);
+        pingTimer = setTimeout(function () {
+            self.ping();
+        }, 29000); // ping every 30 seconds to keep socket alive
+    }
     this.getGateway = function() {
         return gateway;
     };
 
+    this.ping = function () {
+        if (gateway) {
+            gateway.centralState(function () {});
+        }
+    };
     this.traceMessage = function(message, prefix) {
         if (self.traceEnabled) {
             if ('object' == typeof message) {
@@ -113,11 +125,13 @@ function GATTIP() {
                                     if (gw.isPoweredOn()) {
                                         self.emit('state', gw.isPoweredOn());
                                         clearInterval(statePoll);
+                                        schedulePing();
                                         emitGateway();
                                     }
                                 });
                             },500);
                         }else if(gw.isPoweredOn()){
+                            schedulePing();
                             emitGateway();
                         }
                     });
@@ -164,6 +178,7 @@ function GATTIP() {
             };
             stream.onclose = function (error) {
                 stream = undefined;
+                clearTimeout(pingTimer);
                 self.emit('onclose', error);
                 setTimeout(self.close, 100);
 
@@ -180,6 +195,7 @@ function GATTIP() {
         }
 
         stream.onmessage = function (streamMessage) {
+            schedulePing();
             guardedProcessMessage(true, streamMessage.data, processor.onMessageReceived);
         };
 
@@ -209,6 +225,7 @@ function GATTIP() {
     };
 
     this.close = function () {
+        clearTimeout(pingTimer);
         self.removeAllListeners();
         if (stream) {
             stream.close();
@@ -235,6 +252,7 @@ function GATTIP() {
     // INTERNAL ONLY
 
     this.request = function (method, params, userCb, handler) {
+        schedulePing();
         var ctxt = mh.createUserContext(method, params, userCb, handler);
         var msg = ctxt.originalMessage;
         processor.register(msg, ctxt);
