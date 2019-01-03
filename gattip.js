@@ -145,7 +145,14 @@ function GATTIP() {
                 guardedProcessMessage(false, message, mh.handleIndication)
             });
             processor.on('request', function (message) {
-                sendError(new InternalError("Received a request on a client stream:" +  JSON.stringify(message)));
+                // quck hack for ping
+                if (message.method === 'af') {
+                    self.traceMessage(message, '<req:');
+                    delete message.method;
+                    stream.send(JSON.stringify(message));
+                } else {
+                    sendError(new InternalError("Received a request on a client stream:" + JSON.stringify(message)));
+                }
             });
             gateway = gw;
             self.emit('ready', gw);
